@@ -1,4 +1,5 @@
 from nltk.corpus import stopwords
+from string import punctuation
 from nltk.tokenize import TreebankWordTokenizer
 
 class Cleaner:
@@ -18,7 +19,7 @@ class Cleaner:
         for xi in x:
             if xi in self.digits:
                 return False
-        return str.lower(x)
+        return str.lower(x.strip(punctuation))
 
     def clean(self, x):
         return [self.asses_indiv(xi) for xi in x]
