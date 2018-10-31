@@ -11,30 +11,34 @@ def not_in_filter(link):
     return True
 
 
-def scrape(init_link, visited):
-    page = requests.get(init_link)
+def scrape(stack, visited):
 
-    content = BeautifulSoup(page.text, 'html.parser')
+    while stack:
+        next = stack.pop()
+        page = requests.get(next)
 
-    if content.p:
-        print(init_link)
-        #print(content.p)
-    else:
-        links = content.find_all('a')
-        for link in links:
-            link = link.get('href')
-            if link and not_in_filter(link):
+        content = BeautifulSoup(page.text, 'html.parser')
 
-                link = 'http://avalon.law.yale.edu/subject_menus/' + link
-                if link.find('..') > -1 and  link not in visited:
+        if content.p:
+            print(next)
+            #print(content.p)
+        else:
+            links = content.find_all('a')
+            for link in links:
+                link = link.get('href')
+                if link and not_in_filter(link):
 
-                    visited.add(link)
-                    #print(link)
-                    scrape(link, visited)
+                    link = 'http://avalon.law.yale.edu/subject_menus/' + link
+                    if link.find('..') > -1 and  link not in visited and link not in stack:
+                        visited.add(link)
+                        stack.append(link)
+                        print('append ', link)
+
 
 
 
 
 if __name__ == '__main__':
     visited = set()
-    scrape('http://avalon.law.yale.edu/subject_menus/15th.asp', visited)
+    stack = ['http://avalon.law.yale.edu/subject_menus/15th.asp']
+    scrape(stack, visited)
