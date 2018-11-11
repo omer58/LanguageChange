@@ -4,6 +4,7 @@ import json
 import pprint
 import random
 import re
+from TokenCleaner import Cleaner
 
 '''
 julians outdated stuff
@@ -122,6 +123,8 @@ for i in range(1019):
 topics = list(wiki.keys())
 #random.shuffle(topics)
 i = 0;
+cleaner = Cleaner()
+
 for topic in topics:
     i += 1
     if i%100 == 0:
@@ -152,10 +155,14 @@ for topic in topics:
             prev_date = date
 
             #add to data structure
+
+            paragraph = cleaner.clean(paragraph)
+
             year_book[date-1000].append(paragraph)
 
-            if date == 1000:
-                print(date)
+
+
+    
 
 
 
