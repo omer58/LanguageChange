@@ -25,4 +25,4 @@ for word, wordVec in word2YearVec.items():
                                     * (totalYears / yearsWithWord)
 
 
-pickle.dump(word2YearVec, open('../../data_sets/w2yv_sample.p', 'wb'))
+pickle.dump(word2YearVec, open('../../data_sets/w2yv_sample.pickle', 'wb'))
