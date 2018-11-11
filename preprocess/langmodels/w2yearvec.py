@@ -1,10 +1,10 @@
 from collections import defaultdict
 import pickle
 
-year_book = pickle.loads('../../data_sets/year_book.pickle')
+year_book = pickle.load(open('../../data_sets/year_book_sample.pickle', 'rb'))
 word2YearVec = defaultdict(defaultdict)
 totalYearCounts = defaultdict(int)
-wordsInYear = defaultdict(set())
+wordsInYear = defaultdict(set)
 
 #make word vectors
 for i, documents in enumerate(year_book):
@@ -17,7 +17,7 @@ for i, documents in enumerate(year_book):
 
 totalYears = len(year_book)
 
-#scale word vectors, divide each word in year, by total occurance count of that word. 
+#scale word vectors, divide each word in year, by total occurance count of that word.
 for word, wordVec in word2YearVec.items():
     yearsWithWord = len(wordsInYear[word])
 
@@ -26,5 +26,4 @@ for word, wordVec in word2YearVec.items():
                                     * (totalYears / yearsWithWord)
 
 
-pickle.dump(word2YearVec, open('../../data_sets/w2yv.p', 'wb'))
-
+pickle.dump(word2YearVec, open('../../data_sets/w2yv_sample.pickle', 'wb'))
