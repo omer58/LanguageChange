@@ -1,7 +1,11 @@
 #pseudo code, really
 import pickle
 import numpy as np
+import sys
+sys.path.insert(0, '../preprocess/model_factory/')
+
 from TokenCleaner import Cleaner
+
 
 class Year_Guesser:
     def avg_year(self, ques_vec):
@@ -13,7 +17,7 @@ class Year_Guesser:
         return round(s)
 
     def __init__(self):
-        self.year_vecs = pickle.load(open('../../data_sets/w2yv_sample.pickle', 'rb'))
+        self.year_vecs = pickle.load(open('../data_sets/w2yv_sample.pickle', 'rb'))
 
 
     def guess(self,question):
@@ -26,7 +30,7 @@ class Year_Guesser:
 
 import json
 
-ds = json.loads(open('../../qanta-codalab/data/qanta.dev.2018.04.18.json').read())
+ds = json.loads(open('../qanta-codalab/data/qanta.dev.2018.04.18.json').read())
 clean = Cleaner()
 for iii in range(10):
     print(ds['questions'][iii])
