@@ -1,7 +1,8 @@
 from collections import defaultdict
 import pickle
 
-year_book = pickle.loads('../../data_sets/year_book_sample.pickle')
+LEN_YEAR_VECTOR = 1019
+year_book = pickle.load(open('../../data_sets/year_book_sample.pickle', 'rb'))
 word2YearVec = defaultdict(list)            # { word -> LIST(year_i -> REAL) }
 totalYearCounts = defaultdict(int)          # { year -> int_tot_wrd_count }
 wordsInYear = defaultdict(set)            # { word -> SET(year0, year1, year2) }
@@ -10,9 +11,14 @@ wordsInYear = defaultdict(set)            # { word -> SET(year0, year1, year2) }
 for year, documents in enumerate(year_book):
     for doc in documents:
         for word in doc:
-            word2YearVec[word][year] += 1
+            try:
+                word2YearVec[word][year] += 1
+            except IndexError:
+                for i in range(LEN_YEAR_VECTOR):
+                    word2YearVec[word].append(0.0)
+                word2YearVec[word][year] += 1
             totalYearCounts[year] += 1
-            wordsInyear[word].add(year)
+            wordsInYear[word].add(year)
 
 totalYears = len(year_book)
 
@@ -20,9 +26,17 @@ totalYears = len(year_book)
 for word, wordVec in word2YearVec.items():
     yearsWithWord = len(wordsInYear[word])
 
-    for year in wordVec.keys():
-        word2YearVec[word][year] = (wordVec[year] / totalYearCounts[year]) \
+    for year, value in enumerate(wordVec):
+        try:
+            word2YearVec[word][year] = (value / totalYearCounts[year]) \
                                     * (totalYears / yearsWithWord)
+        except ZeroDivisionError:
+            print(word)
+            print(wordVec)
+            print(yearsWithWord)
+            print(value)
+            print(totalYearCounts[year])
+            print()
 
 
 pickle.dump(word2YearVec, open('../../data_sets/w2yv_sample.pickle', 'wb'))
