@@ -2,7 +2,7 @@ from collections import defaultdict
 import pickle
 
 LEN_YEAR_VECTOR = 1019
-year_book = pickle.load(open('../../data_sets/year_book_sample.pickle', 'rb'))
+year_book = pickle.load(open('../../data_sets/year_book.pickle', 'rb'))
 word2YearVec = defaultdict(list)            # { word -> LIST(year_i -> REAL) }
 totalYearCounts = defaultdict(int)          # { year -> int_tot_wrd_count }
 wordsInYear = defaultdict(set)            # { word -> SET(year0, year1, year2) }
@@ -27,16 +27,17 @@ for word, wordVec in word2YearVec.items():
     yearsWithWord = len(wordsInYear[word])
 
     for year, value in enumerate(wordVec):
-        try:
-            word2YearVec[word][year] = (value / totalYearCounts[year]) \
-                                    * (totalYears / yearsWithWord)
-        except ZeroDivisionError:
-            print(word)
-            print(wordVec)
-            print(yearsWithWord)
-            print(value)
-            print(totalYearCounts[year])
-            print()
+        if value:
+            try:
+                word2YearVec[word][year] = (value / totalYearCounts[year]) \
+                                        * (totalYears / yearsWithWord)
+            except ZeroDivisionError:
+                print(word)
+                print(wordVec)
+                print(yearsWithWord)
+                print(value)
+                print(totalYearCounts[year])
+                print()
 
 
-pickle.dump(word2YearVec, open('../../data_sets/w2yv_sample.pickle', 'wb'))
+pickle.dump(word2YearVec, open('../../data_sets/w2yv.pickle', 'wb'))

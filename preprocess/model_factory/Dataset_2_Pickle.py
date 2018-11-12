@@ -112,7 +112,7 @@ def get_init_date(paragraphs):
 
         return res
 
-wiki = json.loads(open('../../data_sets/wiki_lookup_sample.json').read())
+wiki = json.loads(open('../../data_sets/wiki_lookup.json').read())
 year_book = [] #dictionary of years and the document that belongs to that year
 
 for i in range(1019):
@@ -162,10 +162,10 @@ for topic in topics:
 
 
 
-    
 
 
 
 
 
-pickle.dump(year_book, open('../../data_sets/year_book_sample.pickle', 'wb'))
+
+pickle.dump(year_book, open('../../data_sets/year_book.pickle', 'wb'))
