@@ -5,43 +5,12 @@ import pprint
 import random
 import re
 from TokenCleaner import Cleaner
+from collections import defaultdict
 
-'''
-julians outdated stuff
-
-#packages are defined as [modelinfo_1][modelinfo_2][label]
-#here that is [word2vec][chinese restaurant][label]
-#add more models as needed
+#don't average add the words to every year
+#data structure year word count
 
 
-train_legal_pkg
-train_books_pkg
-train_newsp_pkg
-test_legal_pkg
-test_books_pkg
-test_newsp_pkg
-
-if not pkgs exist in data_sets folder:
-
-    for file in glob('../data_sets/*'):
-        create models for each pkg. Which models do we want?
-            chinese restaurant
-            pure words
-        pkg[-1]=label #ie timeslice in discrete time space
-        add to appropriatePkg
-
-    pickle all built pkgs_unfinished
-
-else:
-    unpickle packages
-
-
-
-if have unfinished packages:
-    train word2vec
-    repickle
-
-'''
 class NoDateFoundException(Exception):
     pass
 
@@ -63,6 +32,7 @@ def get_date(paragraph):
 
     paragraph = duplicate_punctuation(paragraph) #this is done for regex serach
 
+    #instead of not digit change it. -----------------------------------------------------
     dates = []
     dates+=re.findall(r'\D([0-9]{4})\D',paragraph)
     dates+=re.findall(r'\D([0-9]{4})$',paragraph)
@@ -94,7 +64,7 @@ def get_date(paragraph):
 
 
 
-    return date
+    return dates
 
 #gets a list of paragraphs(wiki particle) and returns the date for the first
 #non title paragraph.
@@ -112,11 +82,11 @@ def get_init_date(paragraphs):
 
         return res
 
-wiki = json.loads(open('../../data_sets/wiki_lookup.json').read())
+wiki = json.loads(open('../../data_sets/wiki_lookup_sample.json').read())
 year_book = [] #dictionary of years and the document that belongs to that year
 
 for i in range(1019):
-    year_book.append([])
+    year_book.append(defaultdict(int))
 
 
 #pprint.pprint(wiki['Wham-O'])
@@ -135,7 +105,12 @@ for topic in topics:
     except NoDateFoundException:
         continue
 
-    year_book[prev_date-1000].append(paragraphs[1])
+    para = cleaner.clean(paragraphs[1])
+
+    for year in prev_date:
+        for word in para:
+            year_book[year-1000][word] += 1
+    #year_book[prev_date-1000].append(paragraphs[1])
 
 
 
@@ -156,16 +131,12 @@ for topic in topics:
 
             #add to data structure
 
+
             paragraph = cleaner.clean(paragraph)
 
-            year_book[date-1000].append(paragraph)
+            for year in date:
+                for word in paragraph:
+                    year_book[year-1000][word] += 1
 
 
-
-
-
-
-
-
-
-pickle.dump(year_book, open('../../data_sets/year_book.pickle', 'wb'))
+pickle.dump(year_book, open('../../data_sets/year_book_sample.pickle', 'wb'))
