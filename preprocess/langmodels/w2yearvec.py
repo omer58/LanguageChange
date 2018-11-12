@@ -1,5 +1,6 @@
 from collections import defaultdict
 import pickle
+from math import log
 
 LEN_YEAR_VECTOR = 1019
 year_book = pickle.load(open('../../data_sets/year_book.pickle', 'rb'))
@@ -30,7 +31,8 @@ for word, wordVec in word2YearVec.items():
         if value:
             try:
                 word2YearVec[word][year] = (value / totalYearCounts[year]) \
-                                        * (totalYears / yearsWithWord)
+                                        * log(totalYears / yearsWithWord)
+
             except ZeroDivisionError:
                 print(word)
                 print(wordVec)
