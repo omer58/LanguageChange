@@ -5,7 +5,7 @@ import sys
 sys.path.insert(0, '../preprocess/model_factory/')
 
 from TokenCleaner import Cleaner
-
+EPSILON = sys.float_info.epsilon
 
 class Year_Guesser:
     def avg_year(self, ques_vec):
@@ -19,18 +19,18 @@ class Year_Guesser:
 
 
     def weighted_median(ques_vec):
-        total=sum(ques_vec)
-        ques_vec=[x/total for x in ques_vec]  #sum of weights is one
-        #print (ques_vec)
-        total=sum(ques_vec)
+        left_weight = 0
+        total       = sum(ques_vec)
+        ques_vec    = [x/total for x in ques_vec]
+        total       = sum(ques_vec) # sum of weights is one
+        fulcrum     = total/2       # should be 0.5
+        
+        assert abs(0.5 - fulrum) < EPSILON
+        assert abs(1.0 - total ) < EPSILON
 
-        fulcrum=total/2 #(should be 0.5)
-        left_weight=0
         for i, x in enumerate(ques_vec):
-            left_weight=left_weight+x
-            #print (x)
-            #print (left_weight)
-            if left_weight>fulcrum:
+            left_weight = left_weight+x 
+            if left_weight > fulcrum:
                 return i
             
 
