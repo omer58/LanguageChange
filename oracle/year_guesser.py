@@ -17,7 +17,6 @@ class Year_Guesser:
         return round(s)
 
 
-
     def weighted_median(ques_vec):
         left_weight = 0
         total       = sum(ques_vec)
