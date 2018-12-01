@@ -9,16 +9,24 @@ import numpy as np
 START_CENTURY = 18
 LAST_CENTURY = 19
 
+def load_from_text(file_path):
+    with open(file_path) as file:
+        for l in file:
+            if l:
+                sent = l.split(' ')
+                yield sent
+
 def w2v_make(num, last=False):
     start = time.time()
     vocab = set()
 
 
     num = str(num)
- 
+
     #with open("train_data_"+num+".pickle", "rb") as f:
     #    bucket = pickle.load(f)
-    bucket = np.load('train_data_'+num+'_np.npy').tolist()
+    #bucket = np.load('train_data_'+num+'_np.npy').tolist()
+    bucket = list(load_from_text('train_data_'+num+'_np.txt'))
     print('len of bucket is ',len(bucket))
 
     print('model',num,' start')
@@ -76,3 +84,5 @@ def run():
         print(str(ii), ' of ', str(len(models)),'...')
         models[ii].save('w2v_aligned_'+str(ii)+'.model')
     return models
+
+run()
