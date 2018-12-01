@@ -86,7 +86,7 @@ def run(file_path='/Users/omerakgul/Downloads/Pennsylvania-20180904-text/data/da
         text = []
         for op in case['casebody']['data']['opinions']:
             for sentence in op['text'].split('. '):
-                text.append( gensim.utils.simple_preprocess(sentence))
+                text.append( ' '.join(gensim.utils.simple_preprocess(sentence)) + '\n' )
 
         if   year > 1918:
             bucket19 += text
