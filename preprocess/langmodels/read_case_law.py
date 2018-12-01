@@ -119,9 +119,9 @@ def run(file_path='/Users/omerakgul/Downloads/Pennsylvania-20180904-text/data/da
                  F.write(i)
          print('bucket 18 done')
     if bucket19:
-        with open('train_data_18_np.txt','w') as F:
-         for i in bucket18:
+        with open('train_data_19_np.txt','w') as F:
+         for i in bucket19:
              F.write(i)
-        print('bucket 18 done')
+        print('bucket 19 done')
 
     print("time: ", time.time() - start)
