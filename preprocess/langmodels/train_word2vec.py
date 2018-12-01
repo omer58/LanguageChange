@@ -3,63 +3,48 @@ import gensim
 import sys
 import time
 import pickle
+<<<<<<< HEAD
 import align
+import numpy as np
+=======
+start = time.time()
+>>>>>>> parent of 906c7ba... ALIGNS_VECTORS
 
-START_CENTURY = 18
-LAST_CENTURY = 19
+with open("train_data_19.pickle", "rb") as f:
+    bucket19 = pickle.load(f)
+#with open("train_data_18.pickle", 'rb') as f:
+#    bucket18 = pickle.load(f)
+print('model 19 start')
 
+<<<<<<< HEAD
 def w2v_make(num, last=False):
     start = time.time()
     vocab = set()
     num = str(num)
-    with open("train_data_"+num+".pickle", "rb") as f:
-        bucket = pickle.load(f)
+    #with open("train_data_"+num+".pickle", "rb") as f:
+    #    bucket = pickle.load(f)
 
-    print('model',num,' start')
-    model = gensim.models.Word2Vec.word2vec(bucket, size=300, window=5, min_count=4, workers=10, negative=10)
-    prev = 0
-    tot_len = len(bucket);
+    bucket = np.load('train_data_'+ num +'_np').tolist()
+=======
+model = gensim.models.Word2Vec(bucket19, size=150, window=10, min_count=2, workers=10)
+prev = 0
+tot_len = len(bucket19);
+for i in range(5000, tot_len, 5000):
+    model.train(bucket19[prev:i],total_examples=5000,epochs=10)
+    sys.stdout.write("train progress %d%%   \r" % (i/tot_len*100) )
+    sys.stdout.flush()
+    prev = i
+>>>>>>> parent of 906c7ba... ALIGNS_VECTORS
 
-    for epoch in range(10):
-        for i in range(5000, tot_len, 5000):
-            model.train(bucket[prev:i],total_examples=5000)
-            sys.stdout.write("train progress %d%%   \r" % (i/tot_len*100) )
-            sys.stdout.flush()
-            prev = i
-        model.train(bucket19[prev:],total_examples=len(bucket[prev:]))
-
-    model.save('w2v_'+num+'.model')
-    print("time: ", time.time() - start)
-    print('bucket ',num,' done.')
-
-    if last:
-        print('Compiling vocab...')
-        for sentence in bucket:
-            for word in sentence:
-                vocab.add(word)
-       print('...finished')
-
-    return model, vocab
+model.train(bucket19[prev:],total_examples=len(bucket19[prev:]),epochs=10)
 
 
+model.save('w2v_19.model')
 
-def alg(l_m, w):
-    # centered around final embeddings words
-    base = l_m[-1]
+print('bucket 19 done.')
 
-    for i in range(len(l_m) - 1):
-        other = l_m[i]
-        l_m[i] = smart_procrustes_align_gensim(base, other, words=w)
+#model = gensim.models.Word2Vec (bucket18, size=150, window=10, min_count=2, workers=10)
+#model.train(bucket18,total_examples=len(bucket18),epochs=10)
+#model.save('w2v_18.model')
 
-    return l_m
-
-
-models = []
-for b_num in range(START_CENTURY, LAST_CENTURY): #NON-INCLUSIVE
-    m, _ = w2v_make(b_num)
-    models.append(m)
-
-m, w = w2v_make(LAST_CENTURY, last=True)
-models.append(m)
-
-models = alg(models, w)
+print("time: ", time.time() - start)

@@ -3,6 +3,7 @@ import gensim
 import sys
 import time
 import pickle
+import numpy as np
 start = time.time()
 
 
@@ -16,6 +17,9 @@ for idx, i in enumerate(data):
     if idx % 1000 == 0:
         sys.stdout.write("pre progress %d%%   \r" % (idx/213000*100) )
         sys.stdout.flush()
+
+    if idx > 4000:
+        break;
 
 
 
@@ -45,13 +49,14 @@ def printer(ink):
 
         yield el
 
-print('pickling')
-with open("train_data_19.pickle", "wb") as f:
-    pickle.dump(bucket19, f)
+print('saving')
 
-with open("train_data_19.pickle", "wb") as f:
-    pickle.dump(bucket19, f)
-print('pickling done.')
+np.save('train_data_19_np', np.array(bucket19))
+np.save('train_data_18_np', np.array(bucket18))
+
+
+
+print('saved.')
 
 
 print("time: ", time.time() - start)
