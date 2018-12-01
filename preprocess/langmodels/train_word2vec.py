@@ -55,7 +55,7 @@ def alg(l_m, w):
 
     for i in range(len(l_m) - 1):
         other = l_m[i]
-        l_m[i] = smart_procrustes_align_gensim(base, other, words=w)
+        l_m[i] = align.smart_procrustes_align_gensim(base, other, words=w)
 
     return l_m
 
