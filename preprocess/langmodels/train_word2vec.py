@@ -6,7 +6,7 @@ import pickle
 import align
 import numpy as np
 
-START_CENTURY = 19
+START_CENTURY = 18
 LAST_CENTURY = 19
 
 def w2v_make(num, last=False):
@@ -58,13 +58,20 @@ def alg(l_m, w):
 
     return l_m
 
+def run():
+    print('Building and aligning models. This method saves models to w2v_aligned_x.model and returns a LIST of MODELS')
+    models = []
+    for b_num in range(START_CENTURY, LAST_CENTURY): #NON-INCLUSIVE
+        m, _ = w2v_make(b_num)
+        models.append(m)
 
-models = []
-for b_num in range(START_CENTURY, LAST_CENTURY): #NON-INCLUSIVE
-    m, _ = w2v_make(b_num)
+    m, w = w2v_make(LAST_CENTURY, last=True)
     models.append(m)
 
-m, w = w2v_make(LAST_CENTURY, last=True)
-models.append(m)
-
-models = alg(models, w)
+    models = alg(models, w)
+    print('model alignment finished')
+    print('saving models')
+    for ii in len(range(models)):
+        print(str(ii), ' of ', str(len(models)),'...')
+        models[ii].save('w2v_aligned_'+str(ii)+'.model')
+    return models
