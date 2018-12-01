@@ -6,7 +6,7 @@ import pickle
 import numpy as np
 
 
-def run(file_path='/Users/omerakgul/Downloads/Pennsylvania-20180904-text/data/data.jsonl'):
+def run(file_path='/Users/omerakgul/Downloads/Pennsylvania-20180904-text/data/data.jsonl', num_cases=5000):
     start = time.time()
     data = open(file_path, 'r')
     bucket18 = []
@@ -20,15 +20,15 @@ def run(file_path='/Users/omerakgul/Downloads/Pennsylvania-20180904-text/data/da
             sys.stdout.write("pre progress %d%%   \r" % (idx/213000*100) )
             sys.stdout.flush()
 
-        if count18>5000 and count19>5000:
+        if count18>num_cases and count19>num_cases:
             break
 
         case = json.loads(i)
         year = int(case['decision_date'][:4])
 
-        if year > 1916 and count19 > 5000:
+        if year > 1916 and count19 > num_cases:
             continue
-        if year > 1816 and count18 > 5000:
+        if year > 1816 and count18 > num_cases:
             continue
         if year < 1816:
             continue
