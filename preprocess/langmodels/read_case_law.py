@@ -104,16 +104,24 @@ def run(file_path='/Users/omerakgul/Downloads/Pennsylvania-20180904-text/data/da
                 sys.stdout.flush()
 
             yield el
+    data.close()
+    #np.save('train_data_18_np', np.array(bucket18))
 
     print('saving')
     if bucket17:
-        np.save('train_data_17_np', np.array(bucket17))
+        with open('train_data_17_np.txt','w') as F:
+            for i in bucket17:
+                F.write(i)
         print('bucket 17 done')
     if bucket18:
-        np.save('train_data_18_np', np.array(bucket18))
-        print('bucket 18 done')
+         with open('train_data_18_np.txt','w') as F:
+             for i in bucket18:
+                 F.write(i)
+         print('bucket 18 done')
     if bucket19:
-        np.save('train_data_19_np', np.array(bucket19))
-        print('bucket 19 done')
+        with open('train_data_18_np.txt','w') as F:
+         for i in bucket18:
+             F.write(i)
+        print('bucket 18 done')
 
     print("time: ", time.time() - start)
