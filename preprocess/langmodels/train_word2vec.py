@@ -84,5 +84,3 @@ def run():
         print(str(ii), ' of ', str(len(models)),'...')
         models[ii].save('w2v_aligned_'+str(ii)+'.model')
     return models
-
-run()
