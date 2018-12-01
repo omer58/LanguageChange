@@ -38,7 +38,7 @@ def w2v_make(num, last=False):
         for sentence in bucket:
             for word in sentence:
                 vocab.add(word)
-       print('...finished')
+        print('...finished')
 
     return model, vocab
 
