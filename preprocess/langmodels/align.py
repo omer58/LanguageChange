@@ -8,7 +8,7 @@ def smart_procrustes_align_gensim(base_embed, other_embed, words=None):
 	Return other_embed.
 	If `words` is set, intersect the two models' vocabulary with the vocabulary in words (see `intersection_align_gensim` documentation).
 	"""
-	
+
 	# patch by Richard So [https://twitter.com/richardjeanso) (thanks!) to update this code for new version of gensim
 	base_embed.init_sims()
 	other_embed.init_sims()
@@ -21,16 +21,16 @@ def smart_procrustes_align_gensim(base_embed, other_embed, words=None):
 	other_vecs = in_other_embed.syn0norm
 
 	# just a matrix dot product with numpy
-	m = other_vecs.T.dot(base_vecs) 
+	m = other_vecs.T.dot(base_vecs)
 	# SVD method from numpy
 	u, _, v = np.linalg.svd(m)
 	# another matrix operation
-	ortho = u.dot(v) 
+	ortho = u.dot(v)
 	# Replace original array with modified one
 	# i.e. multiplying the embedding matrix (syn0norm)by "ortho"
 	other_embed.syn0norm = other_embed.syn0 = (other_embed.syn0norm).dot(ortho)
 	return other_embed
-	
+
 def intersection_align_gensim(m1,m2, words=None):
 	"""
 	Intersect two gensim word2vec models, m1 and m2.
@@ -77,4 +77,4 @@ def intersection_align_gensim(m1,m2, words=None):
 			new_vocab[word] = gensim.models.word2vec.Vocab(index=new_index, count=old_vocab_obj.count)
 		m.vocab = new_vocab
 
-       return (m1,m2)
+	return (m1,m2)

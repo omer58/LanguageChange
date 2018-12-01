@@ -4,6 +4,7 @@ import sys
 import time
 import pickle
 import align
+import numpy as np
 
 START_CENTURY = 18
 LAST_CENTURY = 19
@@ -11,13 +12,18 @@ LAST_CENTURY = 19
 def w2v_make(num, last=False):
     start = time.time()
     vocab = set()
+
+    if num == 18:
+        return
+
     num = str(num)
     #with open("train_data_"+num+".pickle", "rb") as f:
     #    bucket = pickle.load(f)
     bucket = np.load('train_data_'+num+'_np.npy').tolist()
+    print(bucket)
 
     print('model',num,' start')
-    model = gensim.models.Word2Vec.word2vec(bucket, size=300, window=5, min_count=4, workers=10, negative=10)
+    model = gensim.models.Word2Vec(bucket, size=300, window=5, min_count=4, workers=10, negative=10)
     prev = 0
     tot_len = len(bucket);
 
