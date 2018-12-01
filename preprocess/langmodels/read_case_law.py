@@ -6,7 +6,7 @@ import pickle
 import numpy as np
 
 
-def run(file_path='/Users/omerakgul/Downloads/Pennsylvania-20180904-text/data/data.jsonl', num_cases=5000):
+def run_test(file_path='/Users/omerakgul/Downloads/Pennsylvania-20180904-text/data/data.jsonl', num_cases=5000):
     start = time.time()
     data = open(file_path, 'r')
     bucket18 = []
@@ -59,4 +59,61 @@ def run(file_path='/Users/omerakgul/Downloads/Pennsylvania-20180904-text/data/da
     np.save('train_data_19_np', np.array(bucket19))
     np.save('train_data_18_np', np.array(bucket18))
     print('saved')
+    print("time: ", time.time() - start)
+
+
+
+
+
+
+
+def run(file_path='/Users/omerakgul/Downloads/Pennsylvania-20180904-text/data/data.jsonl'):
+    start = time.time()
+    data = open(file_path, 'r')
+    bucket17 = []
+    bucket18 = []
+    bucket19 = []
+
+    for idx, i in enumerate(data):
+
+        if idx % 1000 == 0:
+            sys.stdout.write("pre progress %d%%   \r" % (idx/213000*100) )
+            sys.stdout.flush()
+
+        case = json.loads(i)
+        year = int(case['decision_date'][:4])
+
+        text = []
+        for op in case['casebody']['data']['opinions']:
+            for sentence in op['text'].split('. '):
+                text.append( gensim.utils.simple_preprocess(sentence))
+
+        if   year > 1918:
+            bucket19 += text
+        elif year > 1818:
+            bucket18 += text
+        elif year > 1718:
+            bucket17 += text
+
+
+    def printer(ink):
+        len_ink = len(ink)
+        for i, el in enumerate(ink):
+            if i % 1000 == 0:
+                sys.stdout.write("train progress %d%%   \r" % (idx/len_ink*100) )
+                sys.stdout.flush()
+
+            yield el
+
+    print('saving')
+    if bucket17:
+        np.save('train_data_17_np', np.array(bucket17))
+        print('bucket 17 done')
+    if bucket18:
+        np.save('train_data_18_np', np.array(bucket18))
+        print('bucket 18 done')
+    if bucket19:
+        np.save('train_data_19_np', np.array(bucket19))
+        print('bucket 19 done')
+
     print("time: ", time.time() - start)
