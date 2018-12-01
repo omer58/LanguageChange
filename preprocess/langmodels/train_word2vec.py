@@ -15,10 +15,11 @@ def w2v_make(num, last=False):
 
 
     num = str(num)
+ 
     #with open("train_data_"+num+".pickle", "rb") as f:
     #    bucket = pickle.load(f)
     bucket = np.load('train_data_'+num+'_np.npy').tolist()
-    print(len(bucket))
+    print('len of bucket is ',len(bucket))
 
     print('model',num,' start')
     model = gensim.models.Word2Vec(bucket, size=300, window=5, min_count=4, workers=10, negative=10)
@@ -27,11 +28,11 @@ def w2v_make(num, last=False):
 
     for epoch in range(10):
         for i in range(5000, tot_len, 5000):
-            model.train(bucket[prev:i],total_examples=5000)
-            sys.stdout.write("train progress %d%%   \r" % (i/tot_len*100) )
+            model.train(bucket[prev:i],total_examples=5000, epochs=1)
+            sys.stdout.write("epoch "+str(epoch)+", train progress %d%%   \r" % (i/tot_len*100) )
             sys.stdout.flush()
             prev = i
-        model.train(bucket[prev:],total_examples=len(bucket[prev:]))
+        model.train(bucket[prev:],total_examples=len(bucket[prev:]), epochs=1)
 
     model.save('w2v_'+num+'.model')
     print("time: ", time.time() - start)
