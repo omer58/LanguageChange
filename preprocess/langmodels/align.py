@@ -77,4 +77,4 @@ def intersection_align_gensim(m1,m2, words=None):
 			new_vocab[word] = gensim.models.word2vec.Vocab(index=new_index, count=old_vocab_obj.count)
 		m.vocab = new_vocab
 
-return (m1,m2)
+       return (m1,m2)
