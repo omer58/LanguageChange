@@ -72,7 +72,7 @@ def run():
     models = alg(models, w)
     print('model alignment finished')
     print('saving models')
-    for ii in len(range(models)):
+    for ii in range(len(models)):
         print(str(ii), ' of ', str(len(models)),'...')
         models[ii].save('w2v_aligned_'+str(ii)+'.model')
     return models
