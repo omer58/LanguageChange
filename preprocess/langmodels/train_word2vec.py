@@ -6,15 +6,13 @@ import pickle
 import align
 import numpy as np
 
-START_CENTURY = 18
+START_CENTURY = 19
 LAST_CENTURY = 19
 
 def w2v_make(num, last=False):
     start = time.time()
     vocab = set()
 
-    if num == 18:
-        return
 
     num = str(num)
     #with open("train_data_"+num+".pickle", "rb") as f:
