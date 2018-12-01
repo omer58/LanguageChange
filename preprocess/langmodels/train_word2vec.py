@@ -6,7 +6,7 @@ import pickle
 import align
 import numpy as np
 
-START_CENTURY = 18
+START_CENTURY = 17
 LAST_CENTURY = 19
 
 def load_from_text(file_path):
