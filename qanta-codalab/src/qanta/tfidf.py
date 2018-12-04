@@ -12,6 +12,13 @@ from flask import Flask, jsonify, request
 from qanta import util
 from qanta.dataset import QuizBowlDataset
 
+import sys
+sys.path.insert(0, './oracle')
+
+
+from year_guesser import Year_Guesser
+
+
 
 MODEL_PATH = 'tfidf.pickle'
 BUZZ_NUM_GUESSES = 10
@@ -19,9 +26,12 @@ BUZZ_THRESHOLD = 0.3
 
 
 def guess_and_buzz(model, question_text) -> Tuple[str, bool]:
+    question_text = Year_Guesser().guess(question_text) + question_text
     guesses = model.guess([question_text], BUZZ_NUM_GUESSES)[0]
     scores = [guess[1] for guess in guesses]
     buzz = scores[0] / sum(scores) >= BUZZ_THRESHOLD
+    with open('/hey.txt', 'w+') as f:
+        f.write(question_text)
     return guesses[0][0], buzz
 
 
