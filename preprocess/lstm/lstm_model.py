@@ -63,7 +63,8 @@ class LSTM(nn.Module):
     def sent2years(self, sentence):
         list_o_embeddings = []
         for word in sentence:
-            list_o_embeddings.append( Variable(torch.tensor(self.w2yv[word])) )
+            if word in self.w2yv:
+                list_o_embeddings.append( Variable(torch.tensor(self.w2yv[word])) )
         return torch.stack(list_o_embeddings)
 
     def forward(self, sentence):
