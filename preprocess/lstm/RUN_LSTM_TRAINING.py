@@ -6,6 +6,8 @@ import pickle
 import torch.nn as nn
 import torch.optim as optim
 from matplotlib import pyplot as plt
+import time
+from torch.autograd import Variable
 
 
 
@@ -18,9 +20,13 @@ DEFAULT_V_FILE_PATH = '../../../../qanta-codalab/data/qanta.test.2018.04.18.json
 
 
 class LSTM_Loader:
+    def TIME(self):
+        s = str(time.time()-self.sT).split('.')[0] + ' sec'
+        self.sT=time.time()
+        return s
 
     def __init__(self, name, word2yearvec_path=DEFAULT_W2YV_PATH, question_file_path=DEFAULT_Q_FILE_PATH, validate_file_path=DEFAULT_V_FILE_PATH, question_year_path=DEFAULT_Q_YEAR_PATH):
-
+        self.sT = time.time()
         self.name = str(name)
         self.q_file_path = question_file_path
         self.v_file_path = validate_file_path
@@ -31,13 +37,13 @@ class LSTM_Loader:
         if os.path.isfile('../../models/'+name):
             self.lstm = torch.load('../../models/'+name)
         else:
-            print('loading year dict')
+            print('loading year dict', self.TIME())
             w2yv_dict = pickle.load(open(self.w2yv_path, 'rb'))
-            print('initializing model')
+            print('initializing model', self.TIME())
             self.lstm           = lstm_model.YearLSTM(w2yv_dict )
             self.loss_function  = nn.NLLLoss()
             self.optimizer      = optim.SGD(self.lstm.parameters(), lr=0.003, nesterov=True, momentum=0.9)
-            print('preparing train structures')
+            print('preparing train structures', self.TIME())
             self.train()
 
 
@@ -61,17 +67,17 @@ class LSTM_Loader:
         torch.save(model, '../../models/'+self.name)
 
     def _train_all_epochs_(self, training_data, validation=[], num_epochs=50):
-        print('training')
+        print('training', self.TIME())
         train_accuracy, train_loss, test_accuracy, test_loss = [], [], [], []
         print('Epoch 0', end='')
         for epoch in range(num_epochs):
             epoch_correct, epoch_loss, valid_correct, valid_loss = 0.0, 0.0, 0.0, 0.0
             for sentence, tag in training_data:
-                model.zero_grad()
-                model.hidden = model.init_hidden()
-                target = Variable(tag)
-                pred_year = model(sentence)
-                loss = loss_function(pred_year, target)
+                self.lstm.zero_grad()
+                self.lstm.hidden = self.lstm.init_hidden()
+                target = Variable(torch.tensor(tag))
+                pred_year = self.lstm(sentence)
+                loss = self.loss_function(pred_year, target)
                 loss.backward()
                 optimizer.step()
                 epoch_loss += loss
@@ -83,15 +89,15 @@ class LSTM_Loader:
             if validation:
                 with torch.no_grad():
                     for example_X, example_Y in validation:
-                        pred_year  = model(inputs)
-                        target = Variable(example_Y)
+                        pred_year  = self.lstm(inputs)
+                        target = Variable(torch.tensor(example_Y))
                         v_loss = loss_function(pred_year, target)
                         if pred_year == target:
                             valid_correct +=1
                         valid_loss += loss
                     test_accuracy.append(valid_correct)
                     test_loss.append(valid_loss)
-        print('Epoch',str(epoch), 'train_accuracy, train_loss, test_accuracy, test_loss', train_accuracy, train_loss, test_accuracy, test_loss, '\r', end='')
+        print('Epoch',str(epoch), self.TIME(),'train_accuracy, train_loss, test_accuracy, test_loss', train_accuracy, train_loss, test_accuracy, test_loss, '\r', end='')
         return (train_accuracy, train_loss, test_accuracy, test_loss)
 
     def train(self):
@@ -119,5 +125,5 @@ class LSTM_Loader:
                     else:
                         continue #SKIP THIS QUESTION
 
-        results = self._train_all_epochs_(training_data, validation)
+        results = self._train_all_epochs_(training_set, validation_set)
         self.save_data_model(results, self.lstm)

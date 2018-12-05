@@ -1,6 +1,6 @@
 #Julian, you have to change the inputs and the number of epochs/iterations
 #
-
+from torch.autograd import Variable
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
