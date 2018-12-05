@@ -69,11 +69,11 @@ def intersection_align_gensim(m1,m2, words=None):
 		indices = [m.wv.vocab[w].index for w in common_vocab]
 		old_arr = m.wv.syn0norm
 		new_arr = np.array([old_arr[index] for index in indices])
-		m.syn0norm = m.wv.syn0 = new_arr
+		m.wv.syn0norm = m.wv.syn0 = new_arr
 
 		# Replace old vocab dictionary with new one (with common vocab)
 		# and old index2word with new one
-		m.index2word = common_vocab
+		m.wv.index2word = common_vocab
 		old_vocab = m.wv.vocab
 		new_vocab = {}
 		for new_index,word in enumerate(common_vocab):
