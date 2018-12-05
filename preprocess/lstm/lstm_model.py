@@ -29,7 +29,7 @@ torch.manual_seed(58)
 
 EMBEDDING_DIM   = 1019
 HIDDEN_DIM      = 128
-EPOCHS          = 50
+EPOCHS          = 10
 
 class YearLSTM(nn.Module):
 
@@ -40,7 +40,6 @@ class YearLSTM(nn.Module):
 
         self.lstm           = nn.LSTM(EMBEDDING_DIM, HIDDEN_DIM)
         self.hidden2tag     = nn.Linear(HIDDEN_DIM, EMBEDDING_DIM)
-        self.hidden         = self.init_hidden()
 
 
     def init_hidden(self):
@@ -53,12 +52,14 @@ class YearLSTM(nn.Module):
         for word in sentence:
             if word in self.w2yv:
                 list_o_embeddings.append( Variable(torch.tensor(self.w2yv[word])) )
-        return torch.stack(list_o_embeddings)
+        return torch.stack(list_o_embeddings), len(list_o_embeddings)
 
     def forward(self, sentence):
-        embeds = self.sent2years(sentence)
-        lstm_out, self.hidden = self.lstm(
-            embeds.view(len(sentence), 1, -1), self.hidden)
-        tag_space = self.hidden2tag(lstm_out.view(len(sentence), -1))
-        tag_scores = F.log_softmax(tag_space, dim=1)
+        self.hidden = self.init_hidden()
+        embeds, l = self.sent2years(sentence)
+        embeds = embeds.view(l, -1, EMBEDDING_DIM)
+        print(embeds.size())
+        lstm_out, self.hidden = self.lstm( embeds, self.hidden)
+        pred_year = self.hidden2tag(lstm_out.view(l, -1))
+        tag_scores = F.log_softmax(pred_year, dim=1)
         return tag_scores
