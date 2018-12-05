@@ -1,6 +1,7 @@
 import numpy as np
 import gensim
 
+#this is a comment
 def smart_procrustes_align_gensim(base_embed, other_embed, words=None):
 	"""Procrustes align two gensim word2vec models (to allow for comparison between same word across models).
 	Code ported from HistWords <https://github.com/williamleif/histwords> by William Hamilton <wleif@stanford.edu>.
