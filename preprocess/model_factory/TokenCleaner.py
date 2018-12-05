@@ -13,6 +13,7 @@ class Cleaner:
             return False
         if x in self.stopwords:
             return False
+        x = x.replace(u'\xa0', ' ')
         return str.lower(x.strip(punctuation))
 
     def clean(self, sentence):
