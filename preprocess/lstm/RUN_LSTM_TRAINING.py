@@ -8,7 +8,9 @@ import torch.optim as optim
 from matplotlib import pyplot as plt
 import time
 from torch.autograd import Variable
-
+import sys
+sys.path.append('../model_factory')
+import TokenCleaner
 
 
 DEFAULT_Q_FILE_PATH = '../../../../qanta-codalab/data/qanta.train.2018.04.18.json'
@@ -73,10 +75,16 @@ class LSTM_Loader:
         for epoch in range(num_epochs):
             epoch_correct, epoch_loss, valid_correct, valid_loss = 0.0, 0.0, 0.0, 0.0
             for sentence, tag in training_data:
+                tag = tag-1000
                 self.lstm.zero_grad()
                 self.lstm.hidden = self.lstm.init_hidden()
-                target = Variable(torch.tensor(tag))
-                pred_year = self.lstm(sentence)
+                print('YEAR', tag)
+                target = Variable(torch.tensor([tag]))
+                print(target)
+                pred_year_softmax = self.lstm(sentence)
+                pred_year = torch.argmax(pred_year_softmax)
+                print(pred_year)
+                print(pred_year_softmax)
                 loss = self.loss_function(pred_year, target)
                 loss.backward()
                 optimizer.step()
@@ -101,12 +109,13 @@ class LSTM_Loader:
         return (train_accuracy, train_loss, test_accuracy, test_loss)
 
     def train(self):
+        cleaner = TokenCleaner.Cleaner()
         training_set, validation_set = [], []
         with open(self.q_file_path,'r') as F:
             for thing in F:
                 j = json.loads(thing)['questions']
                 for question_chunk in j:
-                    question = question_chunk['text']
+                    question = cleaner.clean(question_chunk['text'])
                     wiki_page = question_chunk['page']
                     if wiki_page in self.wiki_year_dict:
                         wiki_year = self.wiki_year_dict[wiki_page]

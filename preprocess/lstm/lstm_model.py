@@ -57,9 +57,11 @@ class YearLSTM(nn.Module):
     def forward(self, sentence):
         self.hidden = self.init_hidden()
         embeds, l = self.sent2years(sentence)
+        print(embed.size())
         embeds = embeds.view(l, -1, EMBEDDING_DIM)
-        print(embeds.size())
+
         lstm_out, self.hidden = self.lstm( embeds, self.hidden)
-        pred_year = self.hidden2tag(lstm_out.view(l, -1))
+
+        pred_year = self.hidden2tag(lstm_out.view(l, -1)[-1])
         tag_scores = F.log_softmax(pred_year, dim=1)
         return tag_scores
