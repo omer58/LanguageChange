@@ -47,13 +47,11 @@ class YearLSTM(nn.Module):
 
     def forward(self, batch):
         self.hidden = self.init_hidden()
-        #for wLi in range(len(sentence)):
-        #    sentence[wLi] = torch.Tensor(sentence[])
-        print('BS',batch.shape)
-        #[[print(word) for word in sentence if word.shape[0]>1] for sentence in batch]
-        #embeds = sentence.view(l, -1, EMBEDDING_DIM)
-        lstm_out, self.hidden = self.lstm( batch, self.hidden)
+        embeds = batch.view(150, -1, self.EMBEDDING_DIM)
+        lstm_out, self.hidden = self.lstm( embeds, self.hidden)
 
-        pred_year = self.hidden2tag(lstm_out.view(l, -1)[-1])
+        pred_year = self.hidden2tag(lstm_out.view(150, -1)[-1])
+
+
         tag_scores = F.log_softmax(pred_year, dim=0).view(-1, self.EMBEDDING_DIM)
         return tag_scores
