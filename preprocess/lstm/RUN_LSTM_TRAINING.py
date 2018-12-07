@@ -23,7 +23,7 @@ DEFAULT_W2YVD_PATH   = '../../data_sets/w2yv_dic.pickle'
 DEFAULT_W2YVV_PATH   = '../../data_sets/w2yv_vals.npy'
 
 DEFAULT_V_FILE_PATH = '../../../../qanta-codalab/data/qanta.test.2018.04.18.json'
-BATCH_SIZE = 1
+BATCH_SIZE = 32
 MAX_LENGTH =150
 EMBEDDING_DIM=1019
 DEFAULT_YEAR_VEC= [0.0]*EMBEDDING_DIM
@@ -47,12 +47,13 @@ class YVDataset(td.Dataset):
                     sent_len = len(question_words)
                     question = question_words+([-1]*(MAX_LENGTH - sent_len)) if sent_len < MAX_LENGTH else question_words[-sent_len:] #PAD or CONCAT
                     self.data_x.append(question)
-                    self.data_y.append(wiki_year)
+                    self.data_y.append(wiki_year - 1000)
 
   def __getitem__(self, index):
     sentence = self.data_x[index]
     features = torch.FloatTensor([self.w2yvVals[word] if word != -1 else DEFAULT_YEAR_VEC for word in sentence])
-    labels = torch.LongTensor(np.array(self.data_y[index]))
+    labels = torch.LongTensor([self.data_y[index]])
+
     return (features, labels)
 
   def __len__(self):
@@ -108,19 +109,19 @@ class LSTM_Loader:
         torch.save(model, '../../models/'+self.name)
 
     def _train_all_epochs_(self, training_data, validation=[], num_epochs=50):
-        print('training', self.TIME())
+        print('training', self.TIME(), '\r',end='')
         train_accuracy, train_loss, test_accuracy, test_loss = [], [], [], []
         print('Epoch 0')#, end='')
         len_data = len(training_data)
         for epoch in range(num_epochs):
             epoch_correct, epoch_loss, valid_correct, valid_loss = 0.0, 0.0, 0.0, 0.0
             for iii, (sentence, tag) in enumerate(training_data):
-
-                tag = tag-1000
+                print(str(iii), len_data, self.TIME())
                 self.lstm.zero_grad()
                 self.lstm.hidden = self.lstm.init_hidden()
                 target = Variable(tag)
                 pred_year = self.lstm(sentence)
+                target=target.view(-1)
                 loss = self.loss_function(pred_year, target)
                 loss.backward()
                 self.optimizer.step()
@@ -133,9 +134,9 @@ class LSTM_Loader:
             if validation:
                 with torch.no_grad():
                     for iii, (sentence, tag) in enumerate(validation):
-                        tag = tag-1000
                         self.lstm.hidden = self.lstm.init_hidden()
                         target = Variable(tag)
+                        target= target.view(-1)
                         pred_year = self.lstm(sentence)
                         vloss = self.loss_function(pred_year, target)
                         valid_loss += vloss
@@ -150,8 +151,9 @@ class LSTM_Loader:
         training_set, validation_set = YVDataset(self.q_file_path, self.wiki_year_dict, self.w2yv_dict, self.w2yv_vals), YVDataset(self.v_file_path, self.wiki_year_dict, self.w2yv_dict, self.w2yv_vals)
 
         trainloader = DataLoader(training_set, batch_size=BATCH_SIZE, shuffle=True)
+        print(self.TIME())
         validloader = DataLoader(validation_set, batch_size=BATCH_SIZE, shuffle=True)
-
+        print(self.TIME())
         results = self._train_all_epochs_(trainloader,validloader)
         self.save_data_model(results, self.lstm)
 
