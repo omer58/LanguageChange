@@ -27,19 +27,17 @@ torch.manual_seed(58)
 # target space of :math:`A` is :math:`|T|`.
 
 
-EMBEDDING_DIM   = 1019
 HIDDEN_DIM      = 128
 EPOCHS          = 10
-
 class YearLSTM(nn.Module):
 
-    def __init__(self, word2yearvectordict, batch_size):
+    def __init__(self, embedding_dim, batch_size):
         super(YearLSTM, self).__init__()
+        self.EMBEDDING_DIM  = embedding_dim
         self.hidden_dim     = HIDDEN_DIM
-        self.w2yv           = word2yearvectordict
         self.BATCH_SIZE     = batch_size
-        self.lstm           = nn.LSTM(EMBEDDING_DIM, HIDDEN_DIM)
-        self.hidden2tag     = nn.Linear(HIDDEN_DIM, EMBEDDING_DIM)
+        self.lstm           = nn.LSTM(self.EMBEDDING_DIM, HIDDEN_DIM)
+        self.hidden2tag     = nn.Linear(HIDDEN_DIM, self.EMBEDDING_DIM)
 
 
     def init_hidden(self):
@@ -47,12 +45,15 @@ class YearLSTM(nn.Module):
         return (torch.zeros(1, self.BATCH_SIZE, self.hidden_dim),
                 torch.zeros(1, self.BATCH_SIZE, self.hidden_dim))
 
-    def forward(self, sentence):
+    def forward(self, batch):
         self.hidden = self.init_hidden()
-        embeds, l = self.sent2years(sentence)
-        embeds = embeds.view(l, -1, EMBEDDING_DIM)
-        lstm_out, self.hidden = self.lstm( embeds, self.hidden)
+        #for wLi in range(len(sentence)):
+        #    sentence[wLi] = torch.Tensor(sentence[])
+        print('BS',batch.shape)
+        #[[print(word) for word in sentence if word.shape[0]>1] for sentence in batch]
+        #embeds = sentence.view(l, -1, EMBEDDING_DIM)
+        lstm_out, self.hidden = self.lstm( batch, self.hidden)
 
         pred_year = self.hidden2tag(lstm_out.view(l, -1)[-1])
-        tag_scores = F.log_softmax(pred_year, dim=0).view(1,EMBEDDING_DIM)
+        tag_scores = F.log_softmax(pred_year, dim=0).view(-1, self.EMBEDDING_DIM)
         return tag_scores
