@@ -26,22 +26,42 @@ BUZZ_THRESHOLD = 0.3
 
 
 def guess_and_buzz(model, question_text) -> Tuple[str, bool]:
-    question_text = Year_Guesser().guess(question_text) + question_text
+    #question_text = Year_Guesser().guess(question_text) + question_text
     guesses = model.guess([question_text], BUZZ_NUM_GUESSES)[0]
     scores = [guess[1] for guess in guesses]
     buzz = scores[0] / sum(scores) >= BUZZ_THRESHOLD
-    with open('/hey.txt', 'w+') as f:
-        f.write(question_text)
+    #with open('/hey.txt', 'w+') as f:
+    #    f.write(question_text)
     return guesses[0][0], buzz
 
 
 def batch_guess_and_buzz(model, questions) -> List[Tuple[str, bool]]:
+    import os
+    if False:
+
+        yg = Year_Guesser()
+        #os.system("echo 'ALL Qs: " +str(questions)+"'")
+        for i in range(len(questions)):
+
+            if len(questions[i]) > 2:
+                year = yg.guess(questions[i])
+                if year:
+                    #os.system("echo '"+questions[i]+"'")
+                    #os.system("echo  'year guess:   " +str(year)+ "'")
+
+                    questions[i] = str(year) + questions[i]
+
+
+
     question_guesses = model.guess(questions, BUZZ_NUM_GUESSES)
+    #os.system("echo '"+str(type(questions))+"'")
     outputs = []
+    #os.system("echo '"+str(question_guesses[:10])+"'")
     for guesses in question_guesses:
         scores = [guess[1] for guess in guesses]
         buzz = scores[0] / sum(scores) >= BUZZ_THRESHOLD
         outputs.append((guesses[0][0], buzz))
+        os.system("echo '"+str(guesses[0])+"'")
     return outputs
 
 
