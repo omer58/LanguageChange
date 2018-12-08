@@ -126,7 +126,7 @@ class LSTM_Loader:
         for epoch in range(num_epochs):
             epoch_correct, epoch_loss, valid_correct, valid_loss = 0.0, 0.0, 0.0, 0.0
             for iii, (sentence, tag) in enumerate(training_data):
-                print('\rdata', str(iii), len_data, time.time()-self.sT(), end='')
+                print('\rdata', str(iii), len_data, time.time()-self.sT, end='')
                 self.lstm.zero_grad()
                 self.lstm.hidden = self.lstm.init_hidden()
                 tag = tag.view(-1)
@@ -145,7 +145,7 @@ class LSTM_Loader:
                         epoch_correct +=1.0
                         print(i)
             train_accuracy.append(epoch_correct/BATCH_SIZE)
-            train_loss.append(epoch_loss/BATCH_SIZE)
+            train_loss.append(epoch_loss.item()/BATCH_SIZE)
 
             if validation:
                 with torch.no_grad():
@@ -162,7 +162,7 @@ class LSTM_Loader:
                             if abs(torch.argmax(batch_guess) - target[i]) < 10:
                                 valid_correct +=1
                     test_accuracy.append(valid_correct/BATCH_SIZE)
-                    test_loss.append(valid_loss/BATCH_SIZE)
+                    test_loss.append(valid_loss.item()/BATCH_SIZE)
             print('Epoch',str(epoch), self.TIME(),' train_accuracy', train_accuracy[-1], ', train_loss', train_loss[-1],', test_accuracy', test_accuracy[-1],', test_loss', test_loss[-1])#, '\r', end='')
         return (train_accuracy, train_loss, test_accuracy, test_loss)
 
