@@ -48,8 +48,8 @@ class YVDataset(td.Dataset):
                     question_words = [w2yv_dict[word] for word in question_words if word in w2yv_dict]
                     sent_len = len(question_words)
                     question = question_words+([-1]*(MAX_LENGTH - sent_len)) if sent_len < MAX_LENGTH else question_words[-sent_len:] #PAD or CONCAT
-                    if features.shape[0] != 150:
-                        print('FEAT',features.shape)
+                    if len(question)!= MAX_LENGTH:
+                        print('FEAT',len(question))
                         print('SENT',sent_len)
                         print(question_chunk['text'])
                     self.data_x.append(question)
