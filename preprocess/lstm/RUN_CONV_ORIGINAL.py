@@ -20,17 +20,17 @@ from torch.utils.data import DataLoader
 
 
 #DEFAULT_Q_FILE_PATH = '../../data_sets/qanta.train.2018.04.18.json'
-DEFAULT_Q_FILE_PATH = '../../../../qanta-codalab/data/qanta.dev.2018.04.18.json'
+DEFAULT_Q_FILE_PATH = '../../../../qanta-codalab/data/qanta.train.2018.04.18.json'
 DEFAULT_Q_YEAR_PATH = '../../data_sets/wiki_article_to_year.pickle'
 DEFAULT_W2YVD_PATH   = '../../data_sets/w2yv_dic.pickle'
 DEFAULT_W2YVV_PATH   = '../../data_sets/w2yv_vals.npy'
 #DEFAULT_V_FILE_PATH = '../../data_sets/qanta.test.2018.04.18.json'
-DEFAULT_V_FILE_PATH =  '../../../../qanta-codalab/data/qanta.dev.2018.04.18.json'
+DEFAULT_V_FILE_PATH =  '../../../../qanta-codalab/data/qanta.test.2018.04.18.json'
 
-BATCH_SIZE      = 64
-MAX_LENGTH      = 128
+BATCH_SIZE      = 32
+MAX_LENGTH      = 64
 EMBEDDING_DIM   = 1019
-NUM_EPOCHS      = 40
+NUM_EPOCHS      = 20
 
 DEFAULT_YEAR_VEC= [0.0]*EMBEDDING_DIM
 
@@ -42,12 +42,18 @@ class YVDataset(td.Dataset):
     print('Loading dataset from ', file_path)
     self.data_x, self.data_y = [], []
     with open(file_path,'r') as F:
+        bucketcounter =dict()
         for thing in F:
             j = json.loads(thing)['questions']
             for question_chunk in j:
                 wiki_page = question_chunk['page']
                 if wiki_page in wiki_year_dict:
                     wiki_year = wiki_year_dict[wiki_page]
+                    if wiki_year not in bucketcounter:
+                        bucketcounter[wiki_year ]=0
+                    if bucketcounter[wiki_year] > 80:
+                        continue
+                    bucketcounter[wiki_year]+=1
                     question_words = cleaner.clean(question_chunk['text'])
                     question_words = [w2yv_dict[word] for word in question_words if word in w2yv_dict]
                     sent_len = len(question_words)
@@ -61,7 +67,7 @@ class YVDataset(td.Dataset):
 
   def __getitem__(self, index):
     sentence = self.data_x[index]
-    features = torch.FloatTensor([self.w2yvVals[word] if word != -1 else DEFAULT_YEAR_VEC for word in sentence])
+    features = torch.FloatTensor([self.w2yvVals[word]*100 if word != -1 else DEFAULT_YEAR_VEC for word in sentence])
     labels = torch.FloatTensor([self.data_y[index]])
     return (features, labels)
 
@@ -94,7 +100,8 @@ class LSTM_Loader:
         self.lstm           = conv_model.YearLSTM(EMBEDDING_DIM, BATCH_SIZE, MAX_LENGTH, self.device )
         self.lstm.to(self.device)
         self.loss_function  = nn.MSELoss().to(self.device)
-        self.optimizer      = optim.SGD(self.lstm.parameters(), lr=1e-3, momentum=0.9, nesterov=True, weight_decay=5e-4)
+        self.optimizer      = optim.SGD(self.lstm.parameters(), lr=1e-7, momentum=0.9, nesterov=True, weight_decay=5e-4)
+        self.scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau (self.optimizer, cooldown=2)
 
         if os.path.isfile('../../models/'+name) and False:
             print('LOADING MODEL FROM DISK')
@@ -183,6 +190,7 @@ class LSTM_Loader:
             train_loss.append(epoch_loss.item()/counter)
 
             if validation:
+                print('\nvalidating')
                 with torch.no_grad():
                     counter = 0.0
                     for iii, (sentence, tag) in enumerate(validation):
@@ -198,8 +206,11 @@ class LSTM_Loader:
                             counter+=1
                             if abs(batch_guess - target[i]) < 5:
                                 valid_correct +=1
+                            if counter < 5:
+                                print('[',batch_guess, target[i],']')
                     test_accuracy.append(valid_correct/counter)
                     test_loss.append(valid_loss.item()/counter)
+            self.scheduler.step()
             print('Epoch',str(epoch), self.TIME(),' train_accuracy', train_accuracy[-1], ', train_loss', train_loss[-1],', test_accuracy', test_accuracy[-1],', test_loss', test_loss[-1])#, '\r', end='')
         return (train_accuracy, train_loss, test_accuracy, test_loss)
 
