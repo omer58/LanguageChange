@@ -143,7 +143,7 @@ class LSTM_Loader:
                     #print('len batch: ', len(pred_year))
                     if abs(torch.argmax(batch_guess) - target[i]) <10:
                         epoch_correct +=1.0
-                        print('corrects: ', epoch_correct, 'batch_size ', BATCH_SIZE*len(training_data))
+                        #print('corrects: ', epoch_correct, 'batch_size ', BATCH_SIZE*len(training_data))
             train_accuracy.append(epoch_correct/BATCH_SIZE/len(training_data))
             train_loss.append(epoch_loss.item()/BATCH_SIZE/len(training_data))
 
