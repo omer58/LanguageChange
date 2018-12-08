@@ -52,6 +52,7 @@ class YearLSTM(nn.Module):
         self.hidden = self.init_hidden()
         embeds = batch.view(self.SENT_LEN, -1, self.EMBEDDING_DIM)
         lstm_out, self.hidden = self.lstm( embeds, self.hidden)
-        pred_year = self.hidden2tag(lstm_out[:,-1,:])
-        tag_scores = F.relu(pred_year) #.view(-1, self.EMBEDDING_DIM)
+        pred_year = self.hidden2tag(lstm_out)
+        tag_scores = F.relu(pred_year[-1,:,:]) #.view(-1, self.EMBEDDING_DIM)
+
         return tag_scores

@@ -18,7 +18,7 @@ torch.backends.cudnn.benchmark=True
 from torch.utils.data import DataLoader
 
 
-DEFAULT_Q_FILE_PATH = '../../data_sets/qanta.dev.2018.04.18.json'
+DEFAULT_Q_FILE_PATH = '../../data_sets/qanta.train.2018.04.18.json'
 DEFAULT_Q_YEAR_PATH = '../../data_sets/wiki_article_to_year.pickle'
 DEFAULT_W2YVD_PATH   = '../../data_sets/w2yv_dic.pickle'
 DEFAULT_W2YVV_PATH   = '../../data_sets/w2yv_vals.npy'
@@ -27,7 +27,7 @@ DEFAULT_V_FILE_PATH = '../../data_sets/qanta.test.2018.04.18.json'
 BATCH_SIZE      = 64
 MAX_LENGTH      = 128
 EMBEDDING_DIM   = 1019
-NUM_EPOCHS      = 10
+NUM_EPOCHS      = 40
 
 DEFAULT_YEAR_VEC= [0.0]*EMBEDDING_DIM
 
@@ -82,20 +82,38 @@ class LSTM_Loader:
         self.w2yvD_path = word2yeardic_path
         self.w2yvV_path = word2yearval_path
         self.wiki_year_dict = pickle.load(open(self.q_year_path, 'rb'))
+        print('loading year dict', self.TIME())
+        self.w2yv_dict = pickle.load(open(self.w2yvD_path, 'rb'))
+        self.w2yv_vals = np.load(open(self.w2yvV_path, 'rb'))
+        print('preparing train structures', self.TIME())
+        trainL, testL = self.prepare_dataloaders()
+        print('initializing model', self.TIME())
+        self.lstm           = lstm_linear_model.YearLSTM(EMBEDDING_DIM, BATCH_SIZE, MAX_LENGTH, self.device )
+        self.lstm.to(self.device)
+        self.loss_function  = nn.MSELoss().to(self.device)
+        self.optimizer      = optim.SGD(self.lstm.parameters(), lr=1e-3, momentum=0.9, nesterov=True, weight_decay=5e-4)
 
-        if os.path.isfile('../../models/'+name) and False:
-            self.lstm = torch.load('../../models/'+name)
+        if os.path.isfile('../../models/'+name):
+            print('LOADING MODEL FROM DISK')
+            self.lstm.load_state_dict(torch.load('../../models/'+self.name))
+            with torch.no_grad():
+                valid_loss, valid_correct, counter = 0.0, 0.0, 0.0
+                for iii, (sentence, tag) in enumerate(testL):
+                    self.lstm.hidden = self.lstm.init_hidden()
+                    tag = tag.view(-1)
+                    target = Variable(tag).to(self.device)
+                    sentence = Variable(sentence).to(self.device)
+                    pred_year = self.lstm(sentence) #[BATCH x 1019]
+                    pred_year = pred_year.view(-1)
+                    loss = self.loss_function(pred_year, target)
+                    valid_loss += loss
+                    for i, batch_guess in enumerate(pred_year):
+                        counter +=1
+                        if abs(batch_guess - target[i]) < 5:
+                            valid_correct +=1
+                print('TEST ACC:',valid_correct/counter)
+                print('TEST LOS:',valid_loss.item()/counter)
         else:
-            print('loading year dict', self.TIME())
-            self.w2yv_dict = pickle.load(open(self.w2yvD_path, 'rb'))
-            self.w2yv_vals = np.load(open(self.w2yvV_path, 'rb'))
-            print('initializing model', self.TIME())
-            self.lstm           = lstm_linear_model.YearLSTM(EMBEDDING_DIM, BATCH_SIZE, MAX_LENGTH, self.device )
-            self.lstm.to(self.device)
-            self.loss_function  = nn.MSELoss().to(self.device)
-            self.optimizer      = optim.SGD(self.lstm.parameters(), lr=0.003, nesterov=True, momentum=0.9)
-            print('preparing train structures', self.TIME())
-            trainL, testL = self.prepare_dataloaders()
             results = self._train_all_epochs_(trainL,testL)
             self.save_data_model(results, self.lstm)
 
@@ -117,7 +135,20 @@ class LSTM_Loader:
         ax2.legend()
         fig.savefig('../../data_sets/results/'+self.name)   # save the figure to file
         plt.close(fig)    # close the figure
-        torch.save(model, '../../models/'+self.name)
+        torch.save(model.state_dict(), '../../models/'+self.name)
+        with open('../../data_sets/results/'+self.name+'_data.txt', 'w') as F:
+            F.write('\ntrain_accu\n')
+            for i in trnA:
+                F.write(str(i)+'\n')
+            F.write('\ntrain_loss\n')
+            for i in trnL:
+                F.write(str(i)+'\n')
+            F.write('\ntest_accu\n')
+            for i in tstA:
+                F.write(str(i)+'\n')
+            F.write('\ntest_loss\n')
+            for i in tstL:
+                F.write(str(i)+'\n')
 
     def _train_all_epochs_(self, training_data, validation=[], num_epochs=NUM_EPOCHS):
         print('training', self.TIME(), '\r',end='')
@@ -125,7 +156,7 @@ class LSTM_Loader:
         print('Epoch 0')#, end='')
         len_data = len(training_data)
         for epoch in range(num_epochs):
-            epoch_correct, epoch_loss, valid_correct, valid_loss = 0.0, 0.0, 0.0, 0.0
+            epoch_correct, epoch_loss, valid_correct, valid_loss, counter = 0.0, 0.0, 0.0, 0.0, 0.0
             for iii, (sentence, tag) in enumerate(training_data):
                 print('\rdata', str(iii), len_data, int(time.time()-self.sT), 'sec', end='')
                 self.lstm.zero_grad()
@@ -134,41 +165,38 @@ class LSTM_Loader:
                 target = Variable(tag).to(self.device)
                 sentence = Variable(sentence).to(self.device)
                 pred_year = self.lstm(sentence) #[BATCH x 1019]
-                print(pred_year.shape)
-                print(target)
-                input()
-                target = target.view(-1)
-                if iii % 1000 == 0:
-                    print('  Pre:', pred_year.shape, '  Tar:',target.shape)
+                target = target
+                pred_year=pred_year.view(-1)
                 loss = self.loss_function(pred_year, target)
                 loss.backward()
                 self.optimizer.step()
                 epoch_loss += loss
                 for i, batch_guess in enumerate(pred_year):
-                    #print('i ', i)
-                    #print('len batch: ', len(pred_year))
-                    if abs(torch.argmax(batch_guess) - target[i]) <5:
+                    counter +=1
+                    if abs(batch_guess - target[i]) <5:
                         epoch_correct +=1.0
                         #print('corrects: ', epoch_correct, 'batch_size ', BATCH_SIZE*len(training_data))
-            train_accuracy.append(epoch_correct/BATCH_SIZE/len(training_data))
-            train_loss.append(epoch_loss.item()/BATCH_SIZE/len(training_data))
+            train_accuracy.append(epoch_correct/counter)
+            train_loss.append(epoch_loss.item()/counter)
 
             if validation:
                 with torch.no_grad():
+                    counter = 0.0
                     for iii, (sentence, tag) in enumerate(validation):
                         self.lstm.hidden = self.lstm.init_hidden()
                         tag = tag.view(-1)
                         target = Variable(tag).to(self.device)
                         sentence = Variable(sentence).to(self.device)
                         pred_year = self.lstm(sentence) #[BATCH x 1019]
-
+                        pred_year = pred_year.view(-1)
                         loss = self.loss_function(pred_year, target)
                         valid_loss += loss
                         for i, batch_guess in enumerate(pred_year):
-                            if abs(torch.argmax(batch_guess) - target[i]) < 10:
+                            counter+=1
+                            if abs(batch_guess - target[i]) < 5:
                                 valid_correct +=1
-                    test_accuracy.append(valid_correct/BATCH_SIZE/len(validation))
-                    test_loss.append(valid_loss.item()/BATCH_SIZE/len(validation))
+                    test_accuracy.append(valid_correct/counter)
+                    test_loss.append(valid_loss.item()/counter)
             print('Epoch',str(epoch), self.TIME(),' train_accuracy', train_accuracy[-1], ', train_loss', train_loss[-1],', test_accuracy', test_accuracy[-1],', test_loss', test_loss[-1])#, '\r', end='')
         return (train_accuracy, train_loss, test_accuracy, test_loss)
 
@@ -182,4 +210,5 @@ class LSTM_Loader:
 
 
 
-INSTANCE = LSTM_Loader('TEST_1')
+print('running linear')
+INSTANCE = LSTM_Loader('LINEAR_20_EPOCHS_OVERNIGHT')
