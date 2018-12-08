@@ -25,7 +25,7 @@ DEFAULT_W2YVV_PATH   = '../../data_sets/w2yv_vals.npy'
 
 DEFAULT_V_FILE_PATH = '../../data_sets/qanta.test.2018.04.18.json'
 BATCH_SIZE      = 64
-MAX_LENGTH      = 150
+MAX_LENGTH      = 128
 EMBEDDING_DIM   = 1019
 NUM_EPOCHS      = 10
 DEFAULT_YEAR_VEC= [0.0]*EMBEDDING_DIM
@@ -48,6 +48,10 @@ class YVDataset(td.Dataset):
                     question_words = [w2yv_dict[word] for word in question_words if word in w2yv_dict]
                     sent_len = len(question_words)
                     question = question_words+([-1]*(MAX_LENGTH - sent_len)) if sent_len < MAX_LENGTH else question_words[-sent_len:] #PAD or CONCAT
+                    if features.shape[0] != 150:
+                        print('FEAT',features.shape)
+                        print('SENT',sent_len)
+                        print(question_chunk['text'])
                     self.data_x.append(question)
                     self.data_y.append(wiki_year - 1000)
 
@@ -69,6 +73,7 @@ class LSTM_Loader:
     def __init__(self, name, word2yeardic_path=DEFAULT_W2YVD_PATH, word2yearval_path=DEFAULT_W2YVV_PATH, question_file_path=DEFAULT_Q_FILE_PATH, validate_file_path=DEFAULT_V_FILE_PATH, question_year_path=DEFAULT_Q_YEAR_PATH):
         self.sT = time.time()
         self.name = str(name)
+        self.device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
         self.q_file_path = question_file_path
         self.v_file_path = validate_file_path
         self.q_year_path = question_year_path
@@ -84,8 +89,8 @@ class LSTM_Loader:
             self.w2yv_vals = np.load(open(self.w2yvV_path, 'rb'))
             print('initializing model', self.TIME())
             self.lstm           = lstm_model.YearLSTM(EMBEDDING_DIM, BATCH_SIZE )
-            self.lstm.cuda()
-            self.loss_function  = nn.NLLLoss().cuda()
+            self.lstm.to(self.device)
+            self.loss_function  = nn.NLLLoss().to(self.device)
             self.optimizer      = optim.SGD(self.lstm.parameters(), lr=0.003, nesterov=True, momentum=0.9)
             print('preparing train structures', self.TIME())
             self.train()
@@ -118,12 +123,12 @@ class LSTM_Loader:
         for epoch in range(num_epochs):
             epoch_correct, epoch_loss, valid_correct, valid_loss = 0.0, 0.0, 0.0, 0.0
             for iii, (sentence, tag) in enumerate(training_data):
-                print('\rdata', str(iii), len_data, self.TIME(), end='')
+                #print('\rdata', str(iii), len_data, self.TIME(), end='')
                 self.lstm.zero_grad()
                 self.lstm.hidden = self.lstm.init_hidden()
                 tag = tag.view(-1)
-                target = Variable(tag).cuda()
-                sentence = Variable(sentence).cuda()
+                target = Variable(tag).to(self.device)
+                sentence = Variable(sentence).to(self.device)
                 pred_year = self.lstm(sentence) #[BATCH x 1019]
                 target = target.view(-1)
                 loss = self.loss_function(pred_year, target)
@@ -141,8 +146,8 @@ class LSTM_Loader:
                     for iii, (sentence, tag) in enumerate(validation):
                         self.lstm.hidden = self.lstm.init_hidden()
                         tag = tag.view(-1)
-                        target = Variable(tag).cuda()
-                        sentence = Variable(sentence).cuda()
+                        target = Variable(tag).to(self.device)
+                        sentence = Variable(sentence).to(self.device)
                         pred_year = self.lstm(sentence) #[BATCH x 1019]
 
                         loss = self.loss_function(pred_year, target)
