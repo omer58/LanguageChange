@@ -31,7 +31,7 @@ HIDDEN_DIM      = 256
 
 class YearLSTM(nn.Module):
 
-    def __init__(self, embedding_dim, batch_size, sent_len):
+    def __init__(self, embedding_dim, batch_size, sent_len, device):
         super(YearLSTM, self).__init__()
         self.EMBEDDING_DIM  = embedding_dim #1019
         self.BATCH_SIZE     = batch_size
@@ -39,12 +39,14 @@ class YearLSTM(nn.Module):
         self.hidden_dim     = HIDDEN_DIM
         self.lstm           = nn.LSTM(self.EMBEDDING_DIM, HIDDEN_DIM)
         self.hidden2tag     = nn.Linear(HIDDEN_DIM, self.EMBEDDING_DIM)
+        self.device         = device
 
 
     def init_hidden(self):
         # The axes semantics are (num_layers, minibatch_size, hidden_dim)
-        return (torch.zeros(1, self.BATCH_SIZE, self.hidden_dim).cuda(),
-                torch.zeros(1, self.BATCH_SIZE, self.hidden_dim).cuda())
+
+        return (torch.zeros(1, self.BATCH_SIZE, self.hidden_dim).to(self.device),
+                torch.zeros(1, self.BATCH_SIZE, self.hidden_dim).to(self.device))
 
     def forward(self, batch):
         self.hidden = self.init_hidden()

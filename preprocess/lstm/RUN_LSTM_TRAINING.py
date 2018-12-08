@@ -89,7 +89,7 @@ class LSTM_Loader:
             self.w2yv_dict = pickle.load(open(self.w2yvD_path, 'rb'))
             self.w2yv_vals = np.load(open(self.w2yvV_path, 'rb'))
             print('initializing model', self.TIME())
-            self.lstm           = lstm_model.YearLSTM(EMBEDDING_DIM, BATCH_SIZE, MAX_LENGTH )
+            self.lstm           = lstm_model.YearLSTM(EMBEDDING_DIM, BATCH_SIZE, MAX_LENGTH, self.device )
             self.lstm.to(self.device)
             self.loss_function  = nn.NLLLoss().to(self.device)
             self.optimizer      = optim.SGD(self.lstm.parameters(), lr=0.003, nesterov=True, momentum=0.9)
