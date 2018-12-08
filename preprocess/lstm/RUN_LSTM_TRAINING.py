@@ -28,6 +28,7 @@ BATCH_SIZE      = 64
 MAX_LENGTH      = 128
 EMBEDDING_DIM   = 1019
 NUM_EPOCHS      = 10
+
 DEFAULT_YEAR_VEC= [0.0]*EMBEDDING_DIM
 
 
@@ -88,7 +89,7 @@ class LSTM_Loader:
             self.w2yv_dict = pickle.load(open(self.w2yvD_path, 'rb'))
             self.w2yv_vals = np.load(open(self.w2yvV_path, 'rb'))
             print('initializing model', self.TIME())
-            self.lstm           = lstm_model.YearLSTM(EMBEDDING_DIM, BATCH_SIZE )
+            self.lstm           = lstm_model.YearLSTM(EMBEDDING_DIM, BATCH_SIZE, MAX_LENGTH )
             self.lstm.to(self.device)
             self.loss_function  = nn.NLLLoss().to(self.device)
             self.optimizer      = optim.SGD(self.lstm.parameters(), lr=0.003, nesterov=True, momentum=0.9)
@@ -123,7 +124,7 @@ class LSTM_Loader:
         for epoch in range(num_epochs):
             epoch_correct, epoch_loss, valid_correct, valid_loss = 0.0, 0.0, 0.0, 0.0
             for iii, (sentence, tag) in enumerate(training_data):
-                #print('\rdata', str(iii), len_data, self.TIME(), end='')
+                print('\rdata', str(iii), len_data, self.TIME(), end='')
                 self.lstm.zero_grad()
                 self.lstm.hidden = self.lstm.init_hidden()
                 tag = tag.view(-1)

@@ -27,14 +27,15 @@ torch.manual_seed(58)
 # target space of :math:`A` is :math:`|T|`.
 
 
-HIDDEN_DIM      = 512
-EPOCHS          = 1
+HIDDEN_DIM      = 256
+
 class YearLSTM(nn.Module):
 
-    def __init__(self, embedding_dim, batch_size):
+    def __init__(self, embedding_dim, batch_size, sent_len):
         super(YearLSTM, self).__init__()
         self.EMBEDDING_DIM  = embedding_dim #1019
         self.BATCH_SIZE     = batch_size
+        self.SENT_LEN       = sent_len
         self.hidden_dim     = HIDDEN_DIM
         self.lstm           = nn.LSTM(self.EMBEDDING_DIM, HIDDEN_DIM)
         self.hidden2tag     = nn.Linear(HIDDEN_DIM, self.EMBEDDING_DIM)
@@ -47,7 +48,7 @@ class YearLSTM(nn.Module):
 
     def forward(self, batch):
         self.hidden = self.init_hidden()
-        embeds = batch.view(150, -1, self.EMBEDDING_DIM)
+        embeds = batch.view(self.SENT_LEN, -1, self.EMBEDDING_DIM)
         lstm_out, self.hidden = self.lstm( embeds, self.hidden)
         pred_year = self.hidden2tag(lstm_out)#.view(150, -1)[-1])
         pred_year = pred_year[-1][:][:]
