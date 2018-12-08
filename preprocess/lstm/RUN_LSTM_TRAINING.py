@@ -126,7 +126,7 @@ class LSTM_Loader:
         for epoch in range(num_epochs):
             epoch_correct, epoch_loss, valid_correct, valid_loss = 0.0, 0.0, 0.0, 0.0
             for iii, (sentence, tag) in enumerate(training_data):
-                print('\rdata', str(iii), len_data, int(time.time()-self.sT), end='')
+                print('\rdata', str(iii), len_data, int(time.time()-self.sT), 'sec', end='')
                 self.lstm.zero_grad()
                 self.lstm.hidden = self.lstm.init_hidden()
                 tag = tag.view(-1)
