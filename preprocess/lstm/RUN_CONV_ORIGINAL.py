@@ -27,10 +27,10 @@ DEFAULT_W2YVV_PATH   = '../../data_sets/w2yv_vals.npy'
 #DEFAULT_V_FILE_PATH = '../../data_sets/qanta.test.2018.04.18.json'
 DEFAULT_V_FILE_PATH =  '../../../../qanta-codalab/data/qanta.test.2018.04.18.json'
 
-BATCH_SIZE      = 32
+BATCH_SIZE      = 64
 MAX_LENGTH      = 64
 EMBEDDING_DIM   = 1019
-NUM_EPOCHS      = 20
+NUM_EPOCHS      = 40
 
 DEFAULT_YEAR_VEC= [0.0]*EMBEDDING_DIM
 
@@ -225,4 +225,4 @@ class LSTM_Loader:
 
 
 print('running linear')
-INSTANCE = LSTM_Loader('LINEAR_20_EPOCHS_OVERNIGHT')
+INSTANCE = LSTM_Loader('CONV_ORIG')

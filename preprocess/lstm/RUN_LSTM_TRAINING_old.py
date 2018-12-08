@@ -92,7 +92,7 @@ class LSTM_Loader:
             self.lstm           = lstm_model.YearLSTM(EMBEDDING_DIM, BATCH_SIZE, MAX_LENGTH, self.device )
             self.lstm.to(self.device)
             self.loss_function  = nn.NLLLoss().to(self.device)
-            self.optimizer      = optim.SGD(self.lstm.parameters(), lr=0.003, nesterov=True, momentum=0.9)
+            self.optimizer      = optim.SGD(self.lstm.parameters(), lr=1e-7, nesterov=True, momentum=0.9)
             print('preparing train structures', self.TIME())
             trainL, testL = self.prepare_dataloaders()
             results = self._train_all_epochs_(trainL,testL)
@@ -176,4 +176,4 @@ class LSTM_Loader:
 
 
 
-INSTANCE = LSTM_Loader('TEST_1')
+INSTANCE = LSTM_Loader('')
