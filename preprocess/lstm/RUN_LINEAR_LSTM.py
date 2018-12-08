@@ -1,5 +1,5 @@
 import json
-import lstm_model
+import lstm_linear_model
 import os.path
 import torch
 import pickle
@@ -18,13 +18,13 @@ torch.backends.cudnn.benchmark=True
 from torch.utils.data import DataLoader
 
 
-DEFAULT_Q_FILE_PATH = '../../data_sets/qanta.train.2018.04.18.json'
+DEFAULT_Q_FILE_PATH = '../../data_sets/qanta.dev.2018.04.18.json'
 DEFAULT_Q_YEAR_PATH = '../../data_sets/wiki_article_to_year.pickle'
 DEFAULT_W2YVD_PATH   = '../../data_sets/w2yv_dic.pickle'
 DEFAULT_W2YVV_PATH   = '../../data_sets/w2yv_vals.npy'
 
 DEFAULT_V_FILE_PATH = '../../data_sets/qanta.test.2018.04.18.json'
-BATCH_SIZE      = 128
+BATCH_SIZE      = 64
 MAX_LENGTH      = 128
 EMBEDDING_DIM   = 1019
 NUM_EPOCHS      = 10
@@ -59,7 +59,7 @@ class YVDataset(td.Dataset):
   def __getitem__(self, index):
     sentence = self.data_x[index]
     features = torch.FloatTensor([self.w2yvVals[word] if word != -1 else DEFAULT_YEAR_VEC for word in sentence])
-    labels = torch.LongTensor([self.data_y[index]])
+    labels = torch.FloatTensor([self.data_y[index]])
     return (features, labels)
 
   def __len__(self):
@@ -75,6 +75,7 @@ class LSTM_Loader:
         self.sT = time.time()
         self.name = str(name)
         self.device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
+        print(self.device)
         self.q_file_path = question_file_path
         self.v_file_path = validate_file_path
         self.q_year_path = question_year_path
@@ -89,9 +90,9 @@ class LSTM_Loader:
             self.w2yv_dict = pickle.load(open(self.w2yvD_path, 'rb'))
             self.w2yv_vals = np.load(open(self.w2yvV_path, 'rb'))
             print('initializing model', self.TIME())
-            self.lstm           = lstm_model.YearLSTM(EMBEDDING_DIM, BATCH_SIZE, MAX_LENGTH, self.device )
+            self.lstm           = lstm_linear_model.YearLSTM(EMBEDDING_DIM, BATCH_SIZE, MAX_LENGTH, self.device )
             self.lstm.to(self.device)
-            self.loss_function  = nn.NLLLoss().to(self.device)
+            self.loss_function  = nn.MSELoss().to(self.device)
             self.optimizer      = optim.SGD(self.lstm.parameters(), lr=0.003, nesterov=True, momentum=0.9)
             print('preparing train structures', self.TIME())
             trainL, testL = self.prepare_dataloaders()
@@ -133,7 +134,12 @@ class LSTM_Loader:
                 target = Variable(tag).to(self.device)
                 sentence = Variable(sentence).to(self.device)
                 pred_year = self.lstm(sentence) #[BATCH x 1019]
+                print(pred_year.shape)
+                print(target)
+                input()
                 target = target.view(-1)
+                if iii % 1000 == 0:
+                    print('  Pre:', pred_year.shape, '  Tar:',target.shape)
                 loss = self.loss_function(pred_year, target)
                 loss.backward()
                 self.optimizer.step()
@@ -141,7 +147,7 @@ class LSTM_Loader:
                 for i, batch_guess in enumerate(pred_year):
                     #print('i ', i)
                     #print('len batch: ', len(pred_year))
-                    if abs(torch.argmax(batch_guess) - target[i]) <10:
+                    if abs(torch.argmax(batch_guess) - target[i]) <5:
                         epoch_correct +=1.0
                         #print('corrects: ', epoch_correct, 'batch_size ', BATCH_SIZE*len(training_data))
             train_accuracy.append(epoch_correct/BATCH_SIZE/len(training_data))
