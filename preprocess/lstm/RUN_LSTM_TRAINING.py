@@ -94,7 +94,9 @@ class LSTM_Loader:
             self.loss_function  = nn.NLLLoss().to(self.device)
             self.optimizer      = optim.SGD(self.lstm.parameters(), lr=0.003, nesterov=True, momentum=0.9)
             print('preparing train structures', self.TIME())
-            self.train()
+            trainL, testL = self.prepare_dataloaders()
+            results = self._train_all_epochs_(trainL,testL)
+            self.save_data_model(results, self.lstm)
 
 
     def save_data_model(self,results, model):
@@ -140,7 +142,7 @@ class LSTM_Loader:
                     if abs(torch.argmax(batch_guess) - target[i]) <10:
                         epoch_correct +=1.0
             train_accuracy.append(epoch_correct/BATCH_SIZE)
-            train_loss.append(epoch_loss.item()/BATCH_SIZE)
+            train_loss.append(epoch_loss/BATCH_SIZE)
 
             if validation:
                 with torch.no_grad():
@@ -157,18 +159,18 @@ class LSTM_Loader:
                             if abs(torch.argmax(batch_guess) - target[i]) < 10:
                                 valid_correct +=1
                     test_accuracy.append(valid_correct/BATCH_SIZE)
-                    test_loss.append(valid_loss.item()/BATCH_SIZE)
+                    test_loss.append(valid_loss/BATCH_SIZE)
             print('Epoch',str(epoch), self.TIME(),' train_accuracy', train_accuracy[-1], ', train_loss', train_loss[-1],', test_accuracy', test_accuracy[-1],', test_loss', test_loss[-1])#, '\r', end='')
         return (train_accuracy, train_loss, test_accuracy, test_loss)
 
-    def train(self):
+    def prepare_dataloaders(self):
         training_set, validation_set = YVDataset(self.q_file_path, self.wiki_year_dict, self.w2yv_dict, self.w2yv_vals), YVDataset(self.v_file_path, self.wiki_year_dict, self.w2yv_dict, self.w2yv_vals)
         trainloader = DataLoader(training_set, batch_size=BATCH_SIZE, shuffle=True, drop_last=True)
         print(self.TIME())
         validloader = DataLoader(validation_set, batch_size=BATCH_SIZE, shuffle=True, drop_last=True)
         print(self.TIME())
-        results = self._train_all_epochs_(trainloader,validloader)
-        self.save_data_model(results, self.lstm)
+        return trainloader, validloader
+
 
 
 INSTANCE = LSTM_Loader('TEST_1')
