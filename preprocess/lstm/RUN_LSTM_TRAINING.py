@@ -139,8 +139,11 @@ class LSTM_Loader:
                 self.optimizer.step()
                 epoch_loss += loss
                 for i, batch_guess in enumerate(pred_year):
+                    print(i)
+                    print(len(pred_year))
                     if abs(torch.argmax(batch_guess) - target[i]) <10:
                         epoch_correct +=1.0
+                        print(i)
             train_accuracy.append(epoch_correct/BATCH_SIZE)
             train_loss.append(epoch_loss/BATCH_SIZE)
 
