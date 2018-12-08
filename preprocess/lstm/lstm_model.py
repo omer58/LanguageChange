@@ -28,7 +28,7 @@ torch.manual_seed(58)
 
 
 HIDDEN_DIM      = 512
-EPOCHS          = 10
+EPOCHS          = 1
 class YearLSTM(nn.Module):
 
     def __init__(self, embedding_dim, batch_size):
