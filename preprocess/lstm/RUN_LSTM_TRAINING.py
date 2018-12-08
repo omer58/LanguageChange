@@ -14,19 +14,20 @@ from torch.autograd import Variable
 import sys
 sys.path.append('../model_factory')
 import TokenCleaner
+torch.backends.cudnn.benchmark=True
 from torch.utils.data import DataLoader
 
 
-DEFAULT_Q_FILE_PATH = '../../../../qanta-codalab/data/qanta.dev.2018.04.18.json'
+DEFAULT_Q_FILE_PATH = '../../data_sets/qanta.dev.2018.04.18.json'
 DEFAULT_Q_YEAR_PATH = '../../data_sets/wiki_article_to_year.pickle'
 DEFAULT_W2YVD_PATH   = '../../data_sets/w2yv_dic.pickle'
 DEFAULT_W2YVV_PATH   = '../../data_sets/w2yv_vals.npy'
 
-DEFAULT_V_FILE_PATH = '../../../../qanta-codalab/data/qanta.dev.2018.04.18.json'
-BATCH_SIZE      = 32
+DEFAULT_V_FILE_PATH = DEFAULT_Q_FILE_PATH #'../../../../qanta-codalab/data/qanta.dev.2018.04.18.json'
+BATCH_SIZE      = 64
 MAX_LENGTH      = 150
 EMBEDDING_DIM   = 1019
-NUM_EPOCHS      = 1
+NUM_EPOCHS      = 10
 DEFAULT_YEAR_VEC= [0.0]*EMBEDDING_DIM
 
 
@@ -75,7 +76,7 @@ class LSTM_Loader:
         self.w2yvV_path = word2yearval_path
         self.wiki_year_dict = pickle.load(open(self.q_year_path, 'rb'))
 
-        if os.path.isfile('../../models/'+name):
+        if os.path.isfile('../../models/'+name) and False:
             self.lstm = torch.load('../../models/'+name)
         else:
             print('loading year dict', self.TIME())
@@ -83,7 +84,8 @@ class LSTM_Loader:
             self.w2yv_vals = np.load(open(self.w2yvV_path, 'rb'))
             print('initializing model', self.TIME())
             self.lstm           = lstm_model.YearLSTM(EMBEDDING_DIM, BATCH_SIZE )
-            self.loss_function  = nn.NLLLoss()
+            self.lstm.cuda()
+            self.loss_function  = nn.NLLLoss().cuda()
             self.optimizer      = optim.SGD(self.lstm.parameters(), lr=0.003, nesterov=True, momentum=0.9)
             print('preparing train structures', self.TIME())
             self.train()
@@ -119,7 +121,9 @@ class LSTM_Loader:
                 print('\rdata', str(iii), len_data, self.TIME(), end='')
                 self.lstm.zero_grad()
                 self.lstm.hidden = self.lstm.init_hidden()
-                target = Variable(tag)
+                tag = tag.view(-1)
+                target = Variable(tag).cuda()
+                sentence = Variable(sentence).cuda()
                 pred_year = self.lstm(sentence) #[BATCH x 1019]
                 target = target.view(-1)
                 loss = self.loss_function(pred_year, target)
@@ -127,26 +131,28 @@ class LSTM_Loader:
                 self.optimizer.step()
                 epoch_loss += loss
                 for i, batch_guess in enumerate(pred_year):
-                    if torch.argmax(batch_guess) == target[i]:
+                    if abs(torch.argmax(batch_guess) - target[i]) <10:
                         epoch_correct +=1
-            train_accuracy.append(epoch_correct)
-            train_loss.append(epoch_loss)
+            train_accuracy.append(epoch_correct/BATCH_SIZE)
+            train_loss.append(epoch_loss/BATCH_SIZE)
 
             if validation:
                 with torch.no_grad():
                     for iii, (sentence, tag) in enumerate(validation):
                         self.lstm.hidden = self.lstm.init_hidden()
-                        target = Variable(tag)
+                        tag = tag.view(-1)
+                        target = Variable(tag).cuda()
+                        sentence = Variable(sentence).cuda()
                         pred_year = self.lstm(sentence) #[BATCH x 1019]
-                        target = target.view(-1)
+
                         loss = self.loss_function(pred_year, target)
                         valid_loss += loss
                         for i, batch_guess in enumerate(pred_year):
-                            if torch.argmax(batch_guess) == target[i]:
+                            if abs(torch.argmax(batch_guess) - target[i]) < 10:
                                 valid_correct +=1
-                    test_accuracy.append(valid_correct)
-                    test_loss.append(valid_loss)
-            print('Epoch',str(epoch), self.TIME(),' train_accuracy, train_loss, test_accuracy, test_loss', train_accuracy, train_loss, test_accuracy, test_loss)#, '\r', end='')
+                    test_accuracy.append(valid_correct/BATCH_SIZE)
+                    test_loss.append(valid_loss/BATCH_SIZE)
+            print('Epoch',str(epoch), self.TIME(),' train_accuracy, train_loss, test_accuracy, test_loss', train_accuracy[-1], train_loss[-1], test_accuracy[-1], test_loss[-1])#, '\r', end='')
         return (train_accuracy, train_loss, test_accuracy, test_loss)
 
     def train(self):

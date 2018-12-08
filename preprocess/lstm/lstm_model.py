@@ -42,8 +42,8 @@ class YearLSTM(nn.Module):
 
     def init_hidden(self):
         # The axes semantics are (num_layers, minibatch_size, hidden_dim)
-        return (torch.zeros(1, self.BATCH_SIZE, self.hidden_dim),
-                torch.zeros(1, self.BATCH_SIZE, self.hidden_dim))
+        return (torch.zeros(1, self.BATCH_SIZE, self.hidden_dim).cuda(),
+                torch.zeros(1, self.BATCH_SIZE, self.hidden_dim).cuda())
 
     def forward(self, batch):
         self.hidden = self.init_hidden()
