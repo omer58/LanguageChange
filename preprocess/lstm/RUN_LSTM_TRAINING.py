@@ -18,7 +18,7 @@ torch.backends.cudnn.benchmark=True
 from torch.utils.data import DataLoader
 
 
-DEFAULT_Q_FILE_PATH = '../../data_sets/qanta.train.2018.04.18.json'
+DEFAULT_Q_FILE_PATH = '../../data_sets/qanta.dev.2018.04.18.json'
 DEFAULT_Q_YEAR_PATH = '../../data_sets/wiki_article_to_year.pickle'
 DEFAULT_W2YVD_PATH   = '../../data_sets/w2yv_dic.pickle'
 DEFAULT_W2YVV_PATH   = '../../data_sets/w2yv_vals.npy'
@@ -126,7 +126,7 @@ class LSTM_Loader:
         for epoch in range(num_epochs):
             epoch_correct, epoch_loss, valid_correct, valid_loss = 0.0, 0.0, 0.0, 0.0
             for iii, (sentence, tag) in enumerate(training_data):
-                print('\rdata', str(iii), len_data, time.time()-self.sT, end='')
+                print('\rdata', str(iii), len_data, int(time.time()-self.sT), end='')
                 self.lstm.zero_grad()
                 self.lstm.hidden = self.lstm.init_hidden()
                 tag = tag.view(-1)
@@ -139,13 +139,13 @@ class LSTM_Loader:
                 self.optimizer.step()
                 epoch_loss += loss
                 for i, batch_guess in enumerate(pred_year):
-                    print(i)
-                    print(len(pred_year))
+                    #print('i ', i)
+                    #print('len batch: ', len(pred_year))
                     if abs(torch.argmax(batch_guess) - target[i]) <10:
                         epoch_correct +=1.0
-                        print(i)
-            train_accuracy.append(epoch_correct/BATCH_SIZE)
-            train_loss.append(epoch_loss.item()/BATCH_SIZE)
+                        print('corrects: ', epoch_correct, 'batch_size ', BATCH_SIZE*len(training_data))
+            train_accuracy.append(epoch_correct/BATCH_SIZE/len(training_data))
+            train_loss.append(epoch_loss.item()/BATCH_SIZE/len(training_data))
 
             if validation:
                 with torch.no_grad():
@@ -161,8 +161,8 @@ class LSTM_Loader:
                         for i, batch_guess in enumerate(pred_year):
                             if abs(torch.argmax(batch_guess) - target[i]) < 10:
                                 valid_correct +=1
-                    test_accuracy.append(valid_correct/BATCH_SIZE)
-                    test_loss.append(valid_loss.item()/BATCH_SIZE)
+                    test_accuracy.append(valid_correct/BATCH_SIZE/len(validation))
+                    test_loss.append(valid_loss.item()/BATCH_SIZE/len(validation))
             print('Epoch',str(epoch), self.TIME(),' train_accuracy', train_accuracy[-1], ', train_loss', train_loss[-1],', test_accuracy', test_accuracy[-1],', test_loss', test_loss[-1])#, '\r', end='')
         return (train_accuracy, train_loss, test_accuracy, test_loss)
 
