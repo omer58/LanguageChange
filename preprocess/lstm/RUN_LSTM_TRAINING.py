@@ -18,11 +18,13 @@ torch.backends.cudnn.benchmark=True
 from torch.utils.data import DataLoader
 
 
-DEFAULT_Q_FILE_PATH = '../../data_sets/qanta.train.2018.04.18.json' # '../../../../qanta-codalab/data/qanta.dev.2018.04.18.json'
+#DEFAULT_Q_FILE_PATH = '../../data_sets/qanta.dev.2018.04.18.json'
+DEFAULT_Q_FILE_PATH =  '../../../../qanta-codalab/data/qanta.dev.2018.04.18.json'
 DEFAULT_Q_YEAR_PATH = '../../data_sets/wiki_article_to_year.pickle'
 DEFAULT_W2YVD_PATH   = '../../data_sets/w2yv_dic.pickle'
 DEFAULT_W2YVV_PATH   = '../../data_sets/w2yv_vals.npy'
-DEFAULT_V_FILE_PATH = '../../data_sets/qanta.test.2018.04.18.json' # '../../../../qanta-codalab/data/qanta.dev.2018.04.18.json'
+#DEFAULT_V_FILE_PATH = '../../data_sets/qanta.dev.2018.04.18.json'
+DEFAULT_V_FILE_PATH =   '../../../../qanta-codalab/data/qanta.dev.2018.04.18.json'
 
 BATCH_SIZE      = 64
 MAX_LENGTH      = 128
@@ -163,6 +165,7 @@ class LSTM_Loader:
                 target = Variable(tag).to(self.device)
                 sentence = Variable(sentence).to(self.device)
                 pred_year = self.lstm(sentence) #[BATCH x 1019]
+                #print('RUN',pred_year.shape)
                 target = target.view(-1)
                 loss = self.loss_function(pred_year, target)
                 loss.backward()
