@@ -53,7 +53,6 @@ class YVDataset(td.Dataset):
     sentence = self.data_x[index]
     features = torch.FloatTensor([self.w2yvVals[word] if word != -1 else DEFAULT_YEAR_VEC for word in sentence])
     labels = torch.LongTensor([self.data_y[index]])
-
     return (features, labels)
 
   def __len__(self):
@@ -120,14 +119,15 @@ class LSTM_Loader:
                 self.lstm.zero_grad()
                 self.lstm.hidden = self.lstm.init_hidden()
                 target = Variable(tag)
-                pred_year = self.lstm(sentence)
-                target=target.view(-1)
+                pred_year = self.lstm(sentence) #[BATCH x 1019]
+                target = target.view(-1) 
                 loss = self.loss_function(pred_year, target)
                 loss.backward()
                 self.optimizer.step()
                 epoch_loss += loss
-                if torch.argmax(pred_year) == target:
-                    epoch_correct +=1
+                for batch_guess in pred_year:
+                    if torch.argmax(batch_guess) == target:
+                        epoch_correct +=1
             train_accuracy.append(epoch_correct)
             train_loss.append(epoch_loss)
 
@@ -149,7 +149,6 @@ class LSTM_Loader:
 
     def train(self):
         training_set, validation_set = YVDataset(self.q_file_path, self.wiki_year_dict, self.w2yv_dict, self.w2yv_vals), YVDataset(self.v_file_path, self.wiki_year_dict, self.w2yv_dict, self.w2yv_vals)
-
         trainloader = DataLoader(training_set, batch_size=BATCH_SIZE, shuffle=True)
         print(self.TIME())
         validloader = DataLoader(validation_set, batch_size=BATCH_SIZE, shuffle=True)
