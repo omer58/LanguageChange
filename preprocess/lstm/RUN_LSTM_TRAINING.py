@@ -17,15 +17,16 @@ import TokenCleaner
 from torch.utils.data import DataLoader
 
 
-DEFAULT_Q_FILE_PATH = '../../../../qanta-codalab/data/qanta.train.2018.04.18.json'
+DEFAULT_Q_FILE_PATH = '../../../../qanta-codalab/data/qanta.dev.2018.04.18.json'
 DEFAULT_Q_YEAR_PATH = '../../data_sets/wiki_article_to_year.pickle'
 DEFAULT_W2YVD_PATH   = '../../data_sets/w2yv_dic.pickle'
 DEFAULT_W2YVV_PATH   = '../../data_sets/w2yv_vals.npy'
 
-DEFAULT_V_FILE_PATH = '../../../../qanta-codalab/data/qanta.test.2018.04.18.json'
-BATCH_SIZE = 32
-MAX_LENGTH =150
-EMBEDDING_DIM=1019
+DEFAULT_V_FILE_PATH = '../../../../qanta-codalab/data/qanta.dev.2018.04.18.json'
+BATCH_SIZE      = 32
+MAX_LENGTH      = 150
+EMBEDDING_DIM   = 1019
+NUM_EPOCHS      = 1
 DEFAULT_YEAR_VEC= [0.0]*EMBEDDING_DIM
 
 
@@ -107,7 +108,7 @@ class LSTM_Loader:
         plt.close(fig)    # close the figure
         torch.save(model, '../../models/'+self.name)
 
-    def _train_all_epochs_(self, training_data, validation=[], num_epochs=50):
+    def _train_all_epochs_(self, training_data, validation=[], num_epochs=NUM_EPOCHS):
         print('training', self.TIME(), '\r',end='')
         train_accuracy, train_loss, test_accuracy, test_loss = [], [], [], []
         print('Epoch 0')#, end='')
@@ -115,18 +116,18 @@ class LSTM_Loader:
         for epoch in range(num_epochs):
             epoch_correct, epoch_loss, valid_correct, valid_loss = 0.0, 0.0, 0.0, 0.0
             for iii, (sentence, tag) in enumerate(training_data):
-                print(str(iii), len_data, self.TIME())
+                print('\rdata', str(iii), len_data, self.TIME(), end='')
                 self.lstm.zero_grad()
                 self.lstm.hidden = self.lstm.init_hidden()
                 target = Variable(tag)
                 pred_year = self.lstm(sentence) #[BATCH x 1019]
-                target = target.view(-1) 
+                target = target.view(-1)
                 loss = self.loss_function(pred_year, target)
                 loss.backward()
                 self.optimizer.step()
                 epoch_loss += loss
-                for batch_guess in pred_year:
-                    if torch.argmax(batch_guess) == target:
+                for i, batch_guess in enumerate(pred_year):
+                    if torch.argmax(batch_guess) == target[i]:
                         epoch_correct +=1
             train_accuracy.append(epoch_correct)
             train_loss.append(epoch_loss)
@@ -136,12 +137,13 @@ class LSTM_Loader:
                     for iii, (sentence, tag) in enumerate(validation):
                         self.lstm.hidden = self.lstm.init_hidden()
                         target = Variable(tag)
-                        target= target.view(-1)
-                        pred_year = self.lstm(sentence)
-                        vloss = self.loss_function(pred_year, target)
-                        valid_loss += vloss
-                        if torch.argmax(pred_year) == target:
-                            valid_correct +=1
+                        pred_year = self.lstm(sentence) #[BATCH x 1019]
+                        target = target.view(-1)
+                        loss = self.loss_function(pred_year, target)
+                        valid_loss += loss
+                        for i, batch_guess in enumerate(pred_year):
+                            if torch.argmax(batch_guess) == target[i]:
+                                valid_correct +=1
                     test_accuracy.append(valid_correct)
                     test_loss.append(valid_loss)
             print('Epoch',str(epoch), self.TIME(),' train_accuracy, train_loss, test_accuracy, test_loss', train_accuracy, train_loss, test_accuracy, test_loss)#, '\r', end='')
@@ -149,9 +151,9 @@ class LSTM_Loader:
 
     def train(self):
         training_set, validation_set = YVDataset(self.q_file_path, self.wiki_year_dict, self.w2yv_dict, self.w2yv_vals), YVDataset(self.v_file_path, self.wiki_year_dict, self.w2yv_dict, self.w2yv_vals)
-        trainloader = DataLoader(training_set, batch_size=BATCH_SIZE, shuffle=True)
+        trainloader = DataLoader(training_set, batch_size=BATCH_SIZE, shuffle=True, drop_last=True)
         print(self.TIME())
-        validloader = DataLoader(validation_set, batch_size=BATCH_SIZE, shuffle=True)
+        validloader = DataLoader(validation_set, batch_size=BATCH_SIZE, shuffle=True, drop_last=True)
         print(self.TIME())
         results = self._train_all_epochs_(trainloader,validloader)
         self.save_data_model(results, self.lstm)
