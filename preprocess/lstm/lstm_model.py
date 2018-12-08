@@ -52,6 +52,6 @@ class YearLSTM(nn.Module):
         self.hidden = self.init_hidden()
         embeds = batch.view(self.SENT_LEN, -1, self.EMBEDDING_DIM)
         lstm_out, self.hidden = self.lstm( embeds, self.hidden)
-        pred_year = self.hidden2tag(self.hidden[0].shape)#.view(150, -1)[-1])
+        pred_year = self.hidden2tag(self.hidden[0])#.view(150, -1)[-1])
         tag_scores = F.log_softmax(pred_year, dim=1) #.view(-1, self.EMBEDDING_DIM)
         return tag_scores
