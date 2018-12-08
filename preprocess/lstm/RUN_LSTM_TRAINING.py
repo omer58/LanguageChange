@@ -18,12 +18,12 @@ torch.backends.cudnn.benchmark=True
 from torch.utils.data import DataLoader
 
 
-DEFAULT_Q_FILE_PATH = '../../data_sets/qanta.train.2018.04.18.json'
+DEFAULT_Q_FILE_PATH = '../../data_sets/qanta.train.2018.04.18.json' # '../../../../qanta-codalab/data/qanta.dev.2018.04.18.json'
 DEFAULT_Q_YEAR_PATH = '../../data_sets/wiki_article_to_year.pickle'
 DEFAULT_W2YVD_PATH   = '../../data_sets/w2yv_dic.pickle'
 DEFAULT_W2YVV_PATH   = '../../data_sets/w2yv_vals.npy'
+DEFAULT_V_FILE_PATH = '../../data_sets/qanta.test.2018.04.18.json' # '../../../../qanta-codalab/data/qanta.dev.2018.04.18.json'
 
-DEFAULT_V_FILE_PATH = '../../data_sets/qanta.test.2018.04.18.json'
 BATCH_SIZE      = 64
 MAX_LENGTH      = 128
 EMBEDDING_DIM   = 1019
@@ -91,7 +91,7 @@ class LSTM_Loader:
         self.lstm.to(self.device)
         self.loss_function  = nn.NLLLoss().to(self.device)
         self.optimizer      = optim.SGD(self.lstm.parameters(), lr=1e-3, momentum=0.9, nesterov=True, weight_decay=5e-4)
-        
+
         if os.path.isfile('../../models/'+name):# and False:
             print('LOADING MODEL FROM DISK')
             self.lstm.load_state_dict(torch.load('../../models/'+self.name))
