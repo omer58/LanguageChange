@@ -1,5 +1,5 @@
 import json
-import mask_model as M
+import conv_model
 import os.path
 import torch
 import pickle
@@ -20,15 +20,15 @@ from torch.utils.data import DataLoader
 
 
 #DEFAULT_Q_FILE_PATH = '../../data_sets/qanta.train.2018.04.18.json'
-DEFAULT_Q_FILE_PATH = '../../../../qanta-codalab/data/qanta.train.2018.04.18.json'
+DEFAULT_Q_FILE_PATH = '../../../../qanta-codalab/data/qanta.dev.2018.04.18.json'
 DEFAULT_Q_YEAR_PATH = '../../data_sets/wiki_article_to_year.pickle'
 DEFAULT_W2YVD_PATH   = '../../data_sets/w2yv_dic.pickle'
 DEFAULT_W2YVV_PATH   = '../../data_sets/w2yv_vals.npy'
 #DEFAULT_V_FILE_PATH = '../../data_sets/qanta.test.2018.04.18.json'
-DEFAULT_V_FILE_PATH =  '../../../../qanta-codalab/data/qanta.test.2018.04.18.json'
+DEFAULT_V_FILE_PATH =  '../../../../qanta-codalab/data/qanta.dev.2018.04.18.json'
 
-BATCH_SIZE      = 32
-MAX_LENGTH      = 64
+BATCH_SIZE      = 64
+MAX_LENGTH      = 128
 EMBEDDING_DIM   = 1019
 NUM_EPOCHS      = 40
 
@@ -40,43 +40,33 @@ class YVDataset(td.Dataset):
     self.w2yvVals = w2yv_vals
     cleaner = TokenCleaner.Cleaner()
     print('Loading dataset from ', file_path)
-    self.data_x, self.data_y = [],[] #, self.questions = [], [], []
+    self.data_x, self.data_y = [], []
     with open(file_path,'r') as F:
-        bucketcounter =dict()
         for thing in F:
             j = json.loads(thing)['questions']
             for question_chunk in j:
                 wiki_page = question_chunk['page']
                 if wiki_page in wiki_year_dict:
                     wiki_year = wiki_year_dict[wiki_page]
-                    if wiki_year not in bucketcounter:
-                        bucketcounter[wiki_year ]=0
-                    if bucketcounter[wiki_year] > 150:
-                        continue
-                    bucketcounter[wiki_year]+=1
                     question_words = cleaner.clean(question_chunk['text'])
-                    #self.questions.append([word in question_words if word in w2yv_dict])
                     question_words = [w2yv_dict[word] for word in question_words if word in w2yv_dict]
                     sent_len = len(question_words)
                     question = question_words+([-1]*(MAX_LENGTH - sent_len)) if sent_len < MAX_LENGTH else question_words[-MAX_LENGTH:] #PAD or CONCAT
                     if len(question)!= MAX_LENGTH:
                         print('FEAT',len(question))
                         print('SENT',sent_len)
-                        #print(question_chunk['text'])
+                        print(question_chunk['text'])
                     self.data_x.append(question)
                     self.data_y.append(wiki_year - 1000)
 
   def __getitem__(self, index):
     sentence = self.data_x[index]
-    features = torch.FloatTensor(np.asarray([self.w2yvVals[word]*100 if word != -1 else DEFAULT_YEAR_VEC for word in sentence]))
+    features = torch.FloatTensor([self.w2yvVals[word] if word != -1 else DEFAULT_YEAR_VEC for word in sentence])
     labels = torch.FloatTensor([self.data_y[index]])
     return (features, labels)
 
   def __len__(self):
     return len(self.data_x)
-
-  #def get_sentence(self, index):
-  #  return self.questions[index]
 
 class LSTM_Loader:
     def TIME(self):
@@ -101,11 +91,10 @@ class LSTM_Loader:
         print('preparing train structures', self.TIME())
         trainL, testL = self.prepare_dataloaders()
         print('initializing model', self.TIME())
-        self.lstm           = M.YearLSTM(EMBEDDING_DIM, BATCH_SIZE, MAX_LENGTH, self.device )
+        self.lstm           = conv_model.YearLSTM(EMBEDDING_DIM, BATCH_SIZE, MAX_LENGTH, self.device )
         self.lstm.to(self.device)
         self.loss_function  = nn.MSELoss().to(self.device)
-        self.optimizer      = optim.SGD(self.lstm.parameters(), lr=1e-7, momentum=0.9, nesterov=True, weight_decay=5e-4)
-        self.scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau (self.optimizer)
+        self.optimizer      = optim.SGD(self.lstm.parameters(), lr=1e-3, momentum=0.9, nesterov=True, weight_decay=5e-4)
 
         if os.path.isfile('../../models/'+name) and False:
             print('LOADING MODEL FROM DISK')
@@ -125,6 +114,7 @@ class LSTM_Loader:
                         counter +=1
                         if abs(batch_guess - target[i]) < 5:
                             valid_correct +=1
+
                 print('TEST ACC:',valid_correct/counter)
                 print('TEST LOS:',valid_loss.item()/counter)
         else:
@@ -165,7 +155,6 @@ class LSTM_Loader:
                 F.write(str(i)+'\n')
 
     def _train_all_epochs_(self, training_data, validation=[], num_epochs=NUM_EPOCHS):
-        self.lstm.train()
         print('training', self.TIME(), '\r',end='')
         train_accuracy, train_loss, test_accuracy, test_loss = [], [], [], []
         print('Epoch 0')#, end='')
@@ -175,6 +164,7 @@ class LSTM_Loader:
             for iii, (sentence, tag) in enumerate(training_data):
                 print('\rdata', str(iii), len_data, int(time.time()-self.sT), 'sec', end='')
                 self.lstm.zero_grad()
+                self.lstm.hidden = self.lstm.init_hidden()
                 tag = tag.view(-1)
                 target = Variable(tag).to(self.device)
                 sentence = Variable(sentence).to(self.device)
@@ -194,17 +184,14 @@ class LSTM_Loader:
             train_loss.append(epoch_loss.item()/counter)
 
             if validation:
-                print('\nvalidating')
                 with torch.no_grad():
                     counter = 0.0
                     for iii, (sentence, tag) in enumerate(validation):
+                        self.lstm.hidden = self.lstm.init_hidden()
                         tag = tag.view(-1)
                         target = Variable(tag).to(self.device)
                         sentence = Variable(sentence).to(self.device)
-
-                        #pred_year, mm = self.lstm(sentence, show=True) #[BATCH x 1019]
                         pred_year = self.lstm(sentence) #[BATCH x 1019]
-
                         pred_year = pred_year.view(-1)
                         loss = self.loss_function(pred_year, target)
                         valid_loss += loss
@@ -212,15 +199,10 @@ class LSTM_Loader:
                             counter+=1
                             if abs(batch_guess - target[i]) < 5:
                                 valid_correct +=1
-                            if counter < 5:
-                                print('[',batch_guess, target[i],']')#, '\nM,',m[i])
-                                #for ii in range(len(m[i])):
-
-
-
+                            if i%100==0:
+                                print('[',batch_guess, target[i],']')
                     test_accuracy.append(valid_correct/counter)
                     test_loss.append(valid_loss.item()/counter)
-            self.scheduler.step(test_loss[-1])
             print('Epoch',str(epoch), self.TIME(),' train_accuracy', train_accuracy[-1], ', train_loss', train_loss[-1],', test_accuracy', test_accuracy[-1],', test_loss', test_loss[-1])#, '\r', end='')
         return (train_accuracy, train_loss, test_accuracy, test_loss)
 
@@ -235,4 +217,4 @@ class LSTM_Loader:
 
 
 print('running linear')
-INSTANCE = LSTM_Loader('MASK')
+INSTANCE = LSTM_Loader('LINEAR_20_EPOCHS_OVERNIGHT')
