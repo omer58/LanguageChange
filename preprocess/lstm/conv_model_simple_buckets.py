@@ -27,7 +27,7 @@ torch.manual_seed(58)
 # target space of :math:`A` is :math:`|T|`.
 
 
-HIDDEN_DIM1      = 1395
+HIDDEN_DIM1      = 605
 HIDDEN_DIM2      = 32
 
 class YearLSTM(nn.Module):
@@ -44,16 +44,19 @@ class YearLSTM(nn.Module):
                                 nn.Conv1d(self.SENT_LEN, 8, 1000, stride=200),
                                 nn.BatchNorm1d(8),
                                 nn.ReLU(inplace=True), #=(1019 - 3 )/2 = 508
+                                nn.MaxPool2d(kernel_size=2, stride=2)
                                 )
         self.med            = nn.Sequential(
                                 nn.Conv1d(self.SENT_LEN, 8, 100, stride=20), # 504
                                 nn.BatchNorm1d(8),
                                 nn.ReLU(inplace=True),
+                                nn.MaxPool2d(kernel_size=2, stride=2)
                                 )
         self.sml            = nn.Sequential(
                                 nn.Conv1d(self.SENT_LEN, 1, 1), #500
                                 nn.BatchNorm1d(1),
-                                nn.ReLU(inplace=True)
+                                nn.ReLU(inplace=True),
+                                nn.MaxPool2d(kernel_size=2, stride=2)
                                 )
 
 
@@ -68,5 +71,5 @@ class YearLSTM(nn.Module):
         #print(c4.shape,'$$$')
         c4 = self.conv2hid(c4)
         pred_year = self.hidden2tag(c4)
-        tag_scores = pred_year 
+        tag_scores = pred_year
         return tag_scores
