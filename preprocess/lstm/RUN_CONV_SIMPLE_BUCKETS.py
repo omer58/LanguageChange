@@ -1,5 +1,5 @@
 import json
-import conv_model_simple as M
+import conv_model_simple_buckets as M
 import os.path
 import torch
 import pickle
@@ -19,7 +19,7 @@ from torch.utils.data import DataLoader
 
 
 
-DEFAULT_Q_FILE_PATH = '../../data_sets/qanta.train.2018.04.18.json'
+DEFAULT_Q_FILE_PATH = '../../data_sets/qanta.dev.2018.04.18.json'
 #DEFAULT_Q_FILE_PATH = '../../../../qanta-codalab/data/qanta.train.2018.04.18.json'
 DEFAULT_Q_YEAR_PATH = '../../data_sets/wiki_article_to_year.pickle'
 DEFAULT_W2YVD_PATH   = '../../data_sets/w2yv_dic.pickle'
@@ -30,7 +30,7 @@ DEFAULT_V_FILE_PATH = '../../data_sets/qanta.test.2018.04.18.json'
 BATCH_SIZE      = 64
 MAX_LENGTH      = 64
 EMBEDDING_DIM   = 1019
-NUM_EPOCHS      = 40
+NUM_EPOCHS      = 1
 
 DEFAULT_YEAR_VEC= [0.0]*EMBEDDING_DIM
 
@@ -51,7 +51,7 @@ class YVDataset(td.Dataset):
                     wiki_year = wiki_year_dict[wiki_page]
                     if wiki_year not in bucketcounter:
                         bucketcounter[wiki_year ]=0
-                    if bucketcounter[wiki_year] > 80:
+                    if bucketcounter[wiki_year] > 500:
                         continue
                     bucketcounter[wiki_year]+=1
                     question_words = cleaner.clean(question_chunk['text'])
@@ -105,11 +105,11 @@ class Buckets:
             buckets.append(range(prev,year))
             prev = year
 
-        for year in range(850, 950, 5):
+        for year in range(850, 950, 10):
             buckets.append(range(prev,year))
             prev = year
 
-        for year in range(955, max_year, 5):
+        for year in range(960, max_year, 10):
             buckets.append(range(prev, year))
             prev = year
 
@@ -134,9 +134,10 @@ class LSTM_Loader:
         return s
 
 
-    def __init__(self, name, word2yeardic_path=DEFAULT_W2YVD_PATH, word2yearval_path=DEFAULT_W2YVV_PATH, question_file_path=DEFAULT_Q_FILE_PATH, validate_file_path=DEFAULT_V_FILE_PATH, question_year_path=DEFAULT_Q_YEAR_PATH):
+    def __init__(self, name, opt, word2yeardic_path=DEFAULT_W2YVD_PATH, word2yearval_path=DEFAULT_W2YVV_PATH, question_file_path=DEFAULT_Q_FILE_PATH, validate_file_path=DEFAULT_V_FILE_PATH, question_year_path=DEFAULT_Q_YEAR_PATH):
         self.sT = time.time()
         self.name = str(name)
+        self.opt = opt
         self.device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
         print(self.device)
         self.q_file_path = question_file_path
@@ -154,7 +155,13 @@ class LSTM_Loader:
         self.lstm           = M.YearLSTM(EMBEDDING_DIM, BATCH_SIZE, MAX_LENGTH, self.device )
         self.lstm.to(self.device)
         self.loss_function  = nn.MSELoss().to(self.device)
-        self.optimizer      = optim.SGD(self.lstm.parameters(), lr=1e-7, momentum=0.9, nesterov=True, weight_decay=5e-4)
+        if self.opt == 'Adadelta':
+            self.optimizer  = optim.Adadelta(self.lstm.parameters())
+        elif self.opt == 'Adam':
+            self.optimizer  = optim.Adam(self.lstm.parameters())
+        else:
+            self.optimizer  = optim.SGD(self.lstm.parameters(), lr=1e-7, momentum=0.9, nesterov=True, weight_decay=5e-4)
+
         self.scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau (self.optimizer, cooldown=2)
         self.buckets = Buckets(self.w2yv_vals)
         assert(self.buckets.is_in_bucket(234, 201))
@@ -293,4 +300,6 @@ class LSTM_Loader:
 
 
 print('running conv simple')
-INSTANCE = LSTM_Loader('CONV_TRIDENT')
+INSTANCE = LSTM_Loader('CONV_simple_adadelta_buckets_Adam', 'Adam')
+INSTANCE = LSTM_Loader('CONV_simple_adadelta_buckets_adadelta', 'Adadelta')
+INSTANCE = LSTM_Loader('CONV_simple_adadelta_buckets_sgd', 'sgd')
