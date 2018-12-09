@@ -27,7 +27,7 @@ torch.manual_seed(58)
 # target space of :math:`A` is :math:`|T|`.
 
 
-HIDDEN_DIM      = 256
+HIDDEN_DIM      = 24
 
 class YearLSTM(nn.Module):
 
@@ -38,35 +38,48 @@ class YearLSTM(nn.Module):
         self.SENT_LEN       = sent_len
         self.hidden_dim     = HIDDEN_DIM
         self.lay1           = nn.Linear(self.EMBEDDING_DIM, HIDDEN_DIM)
-        self.hidden2tag     = nn.Linear(HIDDEN_DIM, 1)
+        self.lay2           = nn.Linear(HIDDEN_DIM, 1)
         self.device         = device
+        self.mask           = nn.Sequential(
+                                nn.Linear( 18 , HIDDEN_DIM),
+                                nn.ReLU(inplace=True),
+                                nn.Linear(HIDDEN_DIM, 1),
+                                )
+        self.maskfeats      = nn.Sequential(
+                                #BATCH SEQLEN FEATURES ([64, 128, 1019])
+                                nn.Conv1d(self.EMBEDDING_DIM, 64, 32),
+                                #nn.BatchNorm1d(16),
+                                nn.ReLU(inplace=True), #=(1019 - 3 )/2 = 508
 
-
-
-
-    def init_hidden(self):
-        # The axes semantics are (num_layers, minibatch_size, hidden_dim)
-
-        return (torch.zeros(1, self.BATCH_SIZE, self.hidden_dim).to(self.device),
-                torch.zeros(1, self.BATCH_SIZE, self.hidden_dim).to(self.device))
+                                nn.Conv1d(16, 64, 16), # 504
+                                #nn.BatchNorm1d(32),
+                                nn.ReLU(inplace=True),
+                                )
+        self.sigmoid        = nn.Sigmoid()
 
     def forward(self, batch):
-        self.hidden = self.init_hidden()
-        #embeds = batch.view(self.SENT_LEN, -1, self.EMBEDDING_DIM)
+        #print(batch.shape, 'HI')
         #BATCH SEQLEN FEATURES ([64, 128, 1019])
-        #embeds = batch.permute(0,1,2)
-        #print(embeds.shape)
-        #print(batch.shape)
+        m =batch.permute(0,2,1)
+        # print(m.shape, 'OOO')
+        #input()
+        m  = self.maskfeats(m)
+        #print(m.shape, 'MMM')
+        #input()
+        #m=m.view(self.BATCH_SIZE, self.SENT_LEN,-1)
+        #print(m.shape, 'OOO')
+        #input()
+        m  = self.mask( m)    # Batch x SentLen x Year   [32 x 64 x 1019]
+
+        m  = self.sigmoid(m) # Batch x SentLen          [32 x 64 x    1]
+        #print(m.shape, 's')
+        #input()
+        batch = m*batch      # Batch x SentLen x Year   [32 x 64 x 1019]
+        divD  = batch.shape[1] # SentLen
+        batch = batch.sum(1) # Batch x Year   [32 x 1019]
+        batch = batch
+
 
         a1 = nn.ReLU(inplace=True)(self.lay1(batch))
-        conv_out  = self.features(embeds)
-        #print('A',conv_out.shape)
-        conv_out = conv_out.view(self.BATCH_SIZE, -1)
-        conv_out  = nn.ReLU(inplace=True)(self.feat2hid(conv_out))
-        #print('B',conv_out.shape)
-
-        #lstm_out, self.hidden = self.lstm( embeds, self.hidden)
-        pred_year = self.hidden2tag(conv_out)
-        tag_scores = pred_year #.view(-1, self.EMBEDDING_DIM)
-
-        return tag_scores
+        a2 = self.lay2(a1)
+        return a2
