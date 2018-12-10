@@ -16,11 +16,12 @@ sys.path.append('../model_factory')
 import TokenCleaner
 torch.backends.cudnn.benchmark=True
 from torch.utils.data import DataLoader
+from operator import itemgetter
 
 
 
 #DEFAULT_Q_FILE_PATH = '../../data_sets/qanta.train.2018.04.18.json'
-DEFAULT_Q_FILE_PATH = '../../../../qanta-codalab/data/qanta.train.2018.04.18.json'
+DEFAULT_Q_FILE_PATH = '../../../../qanta-codalab/data/qanta.dev.2018.04.18.json'
 DEFAULT_Q_YEAR_PATH = '../../data_sets/wiki_article_to_year.pickle'
 DEFAULT_W2YVD_PATH   = '../../data_sets/w2yv_dic.pickle'
 DEFAULT_W2YVV_PATH   = '../../data_sets/w2yv_vals.npy'
@@ -40,7 +41,7 @@ class YVDataset(td.Dataset):
     self.w2yvVals = w2yv_vals
     cleaner = TokenCleaner.Cleaner()
     print('Loading dataset from ', file_path)
-    self.data_x, self.data_y = [],[] #, self.questions = [], [], []
+    self.data_x, self.data_y, self.questions = [], [], []
     with open(file_path,'r') as F:
         bucketcounter =dict()
         for thing in F:
@@ -54,8 +55,8 @@ class YVDataset(td.Dataset):
                     if bucketcounter[wiki_year] > 150:
                         continue
                     bucketcounter[wiki_year]+=1
-                    question_words = cleaner.clean(question_chunk['text'])
-                    #self.questions.append([word in question_words if word in w2yv_dict])
+                    question_words = cleaner.clean(question_chunk['text'].lower())
+                    self.questions.append([word for word in question_words if word in w2yv_dict])
                     question_words = [w2yv_dict[word] for word in question_words if word in w2yv_dict]
                     sent_len = len(question_words)
                     question = question_words+([-1]*(MAX_LENGTH - sent_len)) if sent_len < MAX_LENGTH else question_words[-MAX_LENGTH:] #PAD or CONCAT
@@ -70,13 +71,13 @@ class YVDataset(td.Dataset):
     sentence = self.data_x[index]
     features = torch.FloatTensor(np.asarray([self.w2yvVals[word]*100 if word != -1 else DEFAULT_YEAR_VEC for word in sentence]))
     labels = torch.FloatTensor([self.data_y[index]])
-    return (features, labels)
+    return (features, labels, index)
 
   def __len__(self):
     return len(self.data_x)
 
-  #def get_sentence(self, index):
-  #  return self.questions[index]
+  def get_sentence(self, index):
+    return self.questions[index]
 
 class LSTM_Loader:
     def TIME(self):
@@ -172,7 +173,7 @@ class LSTM_Loader:
         len_data = len(training_data)
         for epoch in range(num_epochs):
             epoch_correct, epoch_loss, valid_correct, valid_loss, counter = 0.0, 0.0, 0.0, 0.0, 0.0
-            for iii, (sentence, tag) in enumerate(training_data):
+            for iii, (sentence, tag, _) in enumerate(training_data):
                 print('\rdata', str(iii), len_data, int(time.time()-self.sT), 'sec', end='')
                 self.lstm.zero_grad()
                 tag = tag.view(-1)
@@ -197,13 +198,13 @@ class LSTM_Loader:
                 print('\nvalidating')
                 with torch.no_grad():
                     counter = 0.0
-                    for iii, (sentence, tag) in enumerate(validation):
+                    for iii, (sentence, tag, qid) in enumerate(validation):
                         tag = tag.view(-1)
                         target = Variable(tag).to(self.device)
                         sentence = Variable(sentence).to(self.device)
 
-                        #pred_year, mm = self.lstm(sentence, show=True) #[BATCH x 1019]
-                        pred_year = self.lstm(sentence) #[BATCH x 1019]
+                        pred_year, mm = self.lstm(sentence, show=True) #[BATCH x 1019]
+                        #pred_year = self.lstm(sentence) #[BATCH x 1019]
 
                         pred_year = pred_year.view(-1)
                         loss = self.loss_function(pred_year, target)
@@ -213,8 +214,16 @@ class LSTM_Loader:
                             if abs(batch_guess - target[i]) < 5:
                                 valid_correct +=1
                             if counter < 5:
-                                print('[',batch_guess, target[i],']')#, '\nM,',m[i])
-                                #for ii in range(len(m[i])):
+                                print('\n[',batch_guess.item(), target[i].item(),']', end='')#, '\nM,',m[i])
+                                queswords = validation.dataset.get_sentence(qid[i])
+                                #print(len(queswords), len(queswords[0]))
+                                listToSort=[]
+                                for ii in range(min(len(queswords), MAX_LENGTH)):
+                                    listToSort.append((queswords[ii], round(mm[i][ii].item(),2)))
+                                listToSort.sort(key=itemgetter(1), reverse=True)
+                                for iia, iib in listToSort:
+                                    print(iia, iib, end=' ')
+                                print()
 
 
 

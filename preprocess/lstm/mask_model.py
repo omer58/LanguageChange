@@ -48,16 +48,18 @@ class YearLSTM(nn.Module):
         self.maskfeats      = nn.Sequential(
                                 #BATCH SEQLEN FEATURES ([64, 128, 1019])
                                 nn.Conv1d(self.EMBEDDING_DIM, 64, 32),
-                                #nn.BatchNorm1d(16),
+                                nn.BatchNorm1d(64),
                                 nn.ReLU(inplace=True), #=(1019 - 3 )/2 = 508
 
                                 nn.Conv1d(64, 64, 16), # 504
-                                #nn.BatchNorm1d(32),
+                                nn.BatchNorm1d(64),
                                 nn.ReLU(inplace=True),
+
+                                #nn.MaxPool1d(4),
                                 )
         self.sigmoid        = nn.Sigmoid()
 
-    def forward(self, batch):#, show=False):
+    def forward(self, batch, show=False):
         #BATCH SEQLEN FEATURES ([64, 128, 1019])
 
         m  = batch.permute(0,2,1)
@@ -70,6 +72,6 @@ class YearLSTM(nn.Module):
 
         a1 = nn.ReLU(inplace=True)(self.lay1(batch))
         a2 = self.lay2(a1)
-        #if show:
-        #    return a2, m
+        if show:
+            return a2, m
         return a2
