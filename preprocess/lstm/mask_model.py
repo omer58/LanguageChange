@@ -37,7 +37,7 @@ class YearLSTM(nn.Module):
         self.BATCH_SIZE     = batch_size
         self.SENT_LEN       = sent_len
         self.hidden_dim     = HIDDEN_DIM
-        self.lay1           = nn.Linear(self.EMBEDDING_DIM, HIDDEN_DIM)
+        self.lay1           = nn.Linear(1119, HIDDEN_DIM)
         self.lay2           = nn.Linear(HIDDEN_DIM, 1)
         self.device         = device
         self.mask           = nn.Sequential(
@@ -47,6 +47,7 @@ class YearLSTM(nn.Module):
                                 )
         self.maskfeats      = nn.Sequential(
                                 #BATCH SEQLEN FEATURES ([64, 128, 1019])
+
                                 nn.Conv1d(1, 16, 31, stride=10, padding=6),
                                 nn.BatchNorm1d(16),
                                 nn.ReLU(inplace=True), #=(1019 - 3 )/2 = 1019
@@ -69,7 +70,7 @@ class YearLSTM(nn.Module):
                                 )
         self.sigmoid        = nn.Sigmoid()
 
-    def forward(self, batch, show=False):
+    def forward(self, batch, word_emb, show=False):
         #BATCH SEQLEN FEATURES ([64, 128, 1019]) [BS, WL, Y]
 
         m = batch.view(self.BATCH_SIZE*self.SENT_LEN, 1, -1)
@@ -79,7 +80,7 @@ class YearLSTM(nn.Module):
         m  = self.sigmoid(m) # Batch x SentLen          [32 x 64 x    1]
         m = m.view(self.BATCH_SIZE,self.SENT_LEN, -1)
 
-        batch = m*batch      # Batch x SentLen x Year   [32 x 64 x 1019]
+        batch = m*(torch.cat((batch, word_emb), dim=2))      # Batch x SentLen x Year   [32 x 64 x 1019]
         batch = batch.sum(1) # Batch x Year   [32 x 1019]
 
         a1 = nn.ReLU(inplace=True)(self.lay1(batch))
