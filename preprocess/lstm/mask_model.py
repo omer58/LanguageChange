@@ -28,7 +28,7 @@ torch.manual_seed(58)
 
 
 HIDDEN_DIM      = 24
-
+CONV_OUT_NUM=64
 class YearLSTM(nn.Module):
 
     def __init__(self, embedding_dim, batch_size, sent_len, device):
@@ -41,34 +41,44 @@ class YearLSTM(nn.Module):
         self.lay2           = nn.Linear(HIDDEN_DIM, 1)
         self.device         = device
         self.mask           = nn.Sequential(
-                                nn.Linear( 18 , HIDDEN_DIM),
+                                nn.Linear( CONV_OUT_NUM , HIDDEN_DIM),
                                 nn.ReLU(inplace=True),
                                 nn.Linear(HIDDEN_DIM, 1),
                                 )
         self.maskfeats      = nn.Sequential(
                                 #BATCH SEQLEN FEATURES ([64, 128, 1019])
-                                nn.Conv1d(self.EMBEDDING_DIM, 64, 32),
+                                nn.Conv1d(1, 64, 64, stride=2),
                                 nn.BatchNorm1d(64),
                                 nn.ReLU(inplace=True), #=(1019 - 3 )/2 = 508
 
-                                nn.Conv1d(64, 64, 16), # 504
+                                nn.Conv1d(64, 64, 32,stride=2), # 504
+                                nn.BatchNorm1d(64),
+                                nn.ReLU(inplace=True),
+                                nn.MaxPool1d(4),
+
+                                nn.Conv1d(64, 64, 16,stride=2), # 504
                                 nn.BatchNorm1d(64),
                                 nn.ReLU(inplace=True),
 
-                                #nn.MaxPool1d(4),
+                                nn.Conv1d(64, CONV_OUT_NUM, 8,stride=2), # 504
+                                nn.BatchNorm1d(64),
+                                nn.ReLU(inplace=True),
+                                nn.MaxPool1d(4),
                                 )
         self.sigmoid        = nn.Sigmoid()
 
     def forward(self, batch, show=False):
-        #BATCH SEQLEN FEATURES ([64, 128, 1019])
+        #BATCH SEQLEN FEATURES ([64, 128, 1019]) [BS, WL, Y]
 
-        m  = batch.permute(0,2,1)
+        m = batch.view(self.BATCH_SIZE*self.SENT_LEN, 1, -1)
         m  = self.maskfeats(m)
+        m  = m.permute(0,2,1)
         m  = self.mask( m)    # Batch x SentLen x Year   [32 x 64 x 1019]
         m  = self.sigmoid(m) # Batch x SentLen          [32 x 64 x    1]
+        m = m.view(self.BATCH_SIZE,self.SENT_LEN, -1)
+
         batch = m*batch      # Batch x SentLen x Year   [32 x 64 x 1019]
         batch = batch.sum(1) # Batch x Year   [32 x 1019]
-        #batch = batch
 
         a1 = nn.ReLU(inplace=True)(self.lay1(batch))
         a2 = self.lay2(a1)
