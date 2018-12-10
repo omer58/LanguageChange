@@ -27,8 +27,8 @@ torch.manual_seed(58)
 # target space of :math:`A` is :math:`|T|`.
 
 
-HIDDEN_DIM      = 24
-CONV_OUT_NUM=64
+HIDDEN_DIM      = 16
+CONV_OUT_NUM = 32
 class YearLSTM(nn.Module):
 
     def __init__(self, embedding_dim, batch_size, sent_len, device):
@@ -47,23 +47,25 @@ class YearLSTM(nn.Module):
                                 )
         self.maskfeats      = nn.Sequential(
                                 #BATCH SEQLEN FEATURES ([64, 128, 1019])
-                                nn.Conv1d(1, 64, 64, stride=2),
-                                nn.BatchNorm1d(64),
-                                nn.ReLU(inplace=True), #=(1019 - 3 )/2 = 508
+                                nn.Conv1d(1, 16, 31, stride=10, padding=6),
+                                nn.BatchNorm1d(16),
+                                nn.ReLU(inplace=True), #=(1019 - 3 )/2 = 1019
 
-                                nn.Conv1d(64, 64, 32,stride=2), # 504
-                                nn.BatchNorm1d(64),
-                                nn.ReLU(inplace=True),
-                                nn.MaxPool1d(4),
-
-                                nn.Conv1d(64, 64, 16,stride=2), # 504
-                                nn.BatchNorm1d(64),
+                                nn.Conv1d(16, 16, 7,stride=2), # 101
+                                nn.BatchNorm1d(16),
                                 nn.ReLU(inplace=True),
 
-                                nn.Conv1d(64, CONV_OUT_NUM, 8,stride=2), # 504
+                                nn.MaxPool1d(2), #48
+
+                                nn.Conv1d(16, 24, 6,stride=2), # 24
                                 nn.BatchNorm1d(64),
                                 nn.ReLU(inplace=True),
-                                nn.MaxPool1d(4),
+
+                                nn.Conv1d(24, CONV_OUT_NUM, 4, stride=2), # 10
+                                nn.BatchNorm1d(64),
+                                nn.ReLU(inplace=True),
+
+                                nn.MaxPool1d(3), # 3 OUT 1
                                 )
         self.sigmoid        = nn.Sigmoid()
 
