@@ -17,17 +17,14 @@ class Buckets:
 
         buckets = []
         prev = 0
-        for year in range(0, 401, 100):
-            buckets.append(range(prev,year))
-            prev = year
+        for year in range(0, 400):
+            buckets.append(100)
 
-        for year in range(450, 701, 50):
-            buckets.append(range(prev,year))
-            prev = year
+        for year in range(400, 700):
+            buckets.append(50)
 
-        for year in range(720, 840, 20):
-            buckets.append(range(prev,year))
-            prev = year
+        for year in range(700, 840):
+            buckets.append(20)
 
         for year in range(850, 950, 10):
             buckets.append(range(prev,year))
@@ -42,14 +39,15 @@ class Buckets:
 
         return buckets
 
+    def get_window(self, year):
+        return 5 + (1018-year)/1018 * 100
 
 
     def is_in_bucket(self, prediction, target):
-        for b in self.buckets:
-            if target in b:
-                window_len = len(b)
 
-                if abs(target - prediction) < window_len:
-                    return True
+        window_len = self.get_window(target)
+
+        if abs(target - prediction) < window_len:
+            return True
 
         return False
