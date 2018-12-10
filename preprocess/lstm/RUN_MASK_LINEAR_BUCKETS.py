@@ -1,0 +1,274 @@
+import json
+import mask_linear as M
+import os.path
+import torch
+import pickle
+import torch.nn as nn
+import torch.optim as optim
+from matplotlib import pyplot as plt
+import time
+import torch.utils.data as td
+import torch
+import numpy as np
+from torch.autograd import Variable
+import sys
+sys.path.append('../model_factory')
+import TokenCleaner
+torch.backends.cudnn.benchmark=True
+from torch.utils.data import DataLoader
+from operator import itemgetter
+from Buckets import Buckets
+
+
+#DEFAULT_Q_FILE_PATH = '../../data_sets/qanta.train.2018.04.18.json'
+DEFAULT_Q_FILE_PATH = '../../../../qanta-codalab/data/qanta.train.2018.04.18.json'
+DEFAULT_Q_YEAR_PATH = '../../data_sets/wiki_article_to_year.pickle'
+DEFAULT_W2YVD_PATH   = '../../data_sets/w2yv_dic.pickle'
+DEFAULT_W2YVV_PATH   = '../../data_sets/w2yv_vals.npy'
+#DEFAULT_V_FILE_PATH = '../../data_sets/qanta.test.2018.04.18.json'
+DEFAULT_V_FILE_PATH =  '../../../../qanta-codalab/data/qanta.test.2018.04.18.json'
+
+BATCH_SIZE      = 32
+MAX_LENGTH      = 64
+EMBEDDING_DIM   = 1019
+NUM_EPOCHS      = 40
+
+DEFAULT_YEAR_VEC= [0.0]*EMBEDDING_DIM
+
+
+class YVDataset(td.Dataset):
+  def __init__(self, file_path, wiki_year_dict, w2yv_dict, w2yv_vals):
+    self.w2yvVals = w2yv_vals
+    cleaner = TokenCleaner.Cleaner()
+    print('Loading dataset from ', file_path)
+    self.data_x, self.data_y, self.questions = [], [], []
+    with open(file_path,'r') as F:
+        #bucketcounter =dict()
+        for thing in F:
+            j = json.loads(thing)['questions']
+            for question_chunk in j:
+                wiki_page = question_chunk['page']
+                if wiki_page in wiki_year_dict:
+                    wiki_year = wiki_year_dict[wiki_page]
+                    #if wiki_year not in bucketcounter:
+                    #    bucketcounter[wiki_year ]=0
+                    #if bucketcounter[wiki_year] > 150:
+                    #    continue
+                    #bucketcounter[wiki_year]+=1
+                    question_words = cleaner.clean(question_chunk['text'].lower())
+                    self.questions.append([word for word in question_words if word in w2yv_dict])
+                    question_words = [w2yv_dict[word] for word in question_words if word in w2yv_dict]
+                    sent_len = len(question_words)
+                    question = question_words+([-1]*(MAX_LENGTH - sent_len)) if sent_len < MAX_LENGTH else question_words[-MAX_LENGTH:] #PAD or CONCAT
+                    if len(question)!= MAX_LENGTH:
+                        print('FEAT',len(question))
+                        print('SENT',sent_len)
+                        #print(question_chunk['text'])
+                    self.data_x.append(question)
+                    self.data_y.append(wiki_year - 1000)
+
+  def __getitem__(self, index):
+    sentence = self.data_x[index]
+    features = torch.FloatTensor(np.asarray([self.w2yvVals[word]*100 if word != -1 else DEFAULT_YEAR_VEC for word in sentence]))
+    labels = torch.FloatTensor([self.data_y[index]])
+    return (features, labels, index)
+
+  def __len__(self):
+    return len(self.data_x)
+
+  def get_sentence(self, index):
+    return self.questions[index]
+
+class LSTM_Loader:
+    def TIME(self):
+        s = str(time.time()-self.sT).split('.')[0] + ' sec'
+        self.sT=time.time()
+        return s
+
+    def __init__(self, name, word2yeardic_path=DEFAULT_W2YVD_PATH, word2yearval_path=DEFAULT_W2YVV_PATH, question_file_path=DEFAULT_Q_FILE_PATH, validate_file_path=DEFAULT_V_FILE_PATH, question_year_path=DEFAULT_Q_YEAR_PATH):
+        self.sT = time.time()
+        self.name = str(name)
+        self.device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
+        print(self.device)
+        self.q_file_path = question_file_path
+        self.v_file_path = validate_file_path
+        self.q_year_path = question_year_path
+        self.w2yvD_path = word2yeardic_path
+        self.w2yvV_path = word2yearval_path
+        self.wiki_year_dict = pickle.load(open(self.q_year_path, 'rb'))
+        print('loading year dict', self.TIME())
+        self.w2yv_dict = pickle.load(open(self.w2yvD_path, 'rb'))
+        self.w2yv_vals = np.load(open(self.w2yvV_path, 'rb'))
+        print('preparing train structures', self.TIME())
+        trainL, testL = self.prepare_dataloaders()
+        print('initializing model', self.TIME())
+        self.lstm           = M.YearLSTM(EMBEDDING_DIM, BATCH_SIZE, MAX_LENGTH, self.device )
+        self.lstm.to(self.device)
+        self.loss_function  = nn.MSELoss().to(self.device)
+        self.optimizer      = optim.SGD(self.lstm.parameters(), lr=1e-7, momentum=0.9, nesterov=True, weight_decay=5e-4)
+        self.scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau (self.optimizer)
+        self.buckets = Buckets(self.w2yv_vals)
+
+        if os.path.isfile('../../models/'+name) and False:
+            print('LOADING MODEL FROM DISK')
+            self.lstm.load_state_dict(torch.load('../../models/'+self.name))
+            print('\nvalidating')
+            with torch.no_grad():
+                counter = 0.0
+                for iii, (sentence, tag, qid) in enumerate(validation):
+                    tag = tag.view(-1)
+                    target = Variable(tag).to(self.device)
+                    sentence = Variable(sentence).to(self.device)
+
+                    pred_year, mm = self.lstm(sentence, show=True) #[BATCH x 1019]
+                    #pred_year = self.lstm(sentence) #[BATCH x 1019]
+
+                    pred_year = pred_year.view(-1)
+                    for i, batch_guess in enumerate(pred_year):
+                        if self.buckets.is_in_bucket(batch_guess, target[i]):
+                            pred_year[i] = torch.tensor(target[i])
+                    loss = self.loss_function(pred_year, target)
+                    valid_loss += loss
+                    for i, batch_guess in enumerate(pred_year):
+                        counter+=1
+                        if self.buckets.is_in_bucket(batch_guess, target[i]):
+                            valid_correct +=1
+                        if counter < 5:
+                            print('\n[',batch_guess.item(), target[i].item(),']', end='')#, '\nM,',m[i])
+                            queswords = validation.dataset.get_sentence(qid[i])
+                            #print(len(queswords), len(queswords[0]))
+                            listToSort=[]
+                            for ii in range(min(len(queswords), MAX_LENGTH)):
+                                listToSort.append((queswords[ii], round(mm[i][ii].item(),2)))
+                            listToSort.sort(key=itemgetter(1), reverse=True)
+                            for iia, iib in listToSort:
+                                print(iia, iib, end=' ')
+                            print()
+                print('TEST ACC:',valid_correct/counter)
+                print('TEST LOS:',valid_loss.item()/counter)
+        else:
+            results = self._train_all_epochs_(trainL,testL)
+            self.save_data_model(results, self.lstm)
+
+
+    def save_data_model(self,results, model):
+        trnA, trnL, tstA, tstL = results
+        fig, (ax1,ax2) = plt.subplots( nrows=1, ncols=2 )
+        ax1.plot(trnA, label='train acc')                   #Plot 1
+        ax1.plot(tstA, label='test  acc')
+        ax1.set_title('Model Accuracy')
+        ax1.set_xlabel('Epochs')
+        ax1.set_ylabel('Accuracy')
+        ax1.legend()
+        ax2.plot(trnL, label='train loss')                  #Plot 2
+        ax2.plot(tstL, label='test  loss')
+        ax2.set_title('Model Loss')
+        ax2.set_xlabel('Epochs')
+        ax2.set_ylabel('Loss')
+        ax2.legend()
+        fig.savefig('../../data_sets/results/'+self.name)   # save the figure to file
+        plt.close(fig)    # close the figure
+        torch.save(model.state_dict(), '../../models/'+self.name)
+        with open('../../data_sets/results/'+self.name+'_data.txt', 'w') as F:
+            F.write('\ntrain_accu\n')
+            for i in trnA:
+                F.write(str(i)+'\n')
+            F.write('\ntrain_loss\n')
+            for i in trnL:
+                F.write(str(i)+'\n')
+            F.write('\ntest_accu\n')
+            for i in tstA:
+                F.write(str(i)+'\n')
+            F.write('\ntest_loss\n')
+            for i in tstL:
+                F.write(str(i)+'\n')
+
+    def _train_all_epochs_(self, training_data, validation=[], num_epochs=NUM_EPOCHS):
+        self.lstm.train()
+        print('training', self.TIME(), '\r',end='')
+        train_accuracy, train_loss, test_accuracy, test_loss = [], [], [], []
+        print('Epoch 0')#, end='')
+        len_data = len(training_data)
+        for epoch in range(num_epochs):
+            epoch_correct, epoch_loss, valid_correct, valid_loss, counter = 0.0, 0.0, 0.0, 0.0, 0.0
+            for iii, (sentence, tag, _) in enumerate(training_data):
+                print('\rdata', str(iii), len_data, int(time.time()-self.sT), 'sec', end='')
+                self.lstm.zero_grad()
+                tag = tag.view(-1)
+                target = Variable(tag).to(self.device)
+                sentence = Variable(sentence).to(self.device)
+                pred_year = self.lstm(sentence) #[BATCH x 1019]
+                target = target
+                pred_year=pred_year.view(-1)
+                for i, batch_guess in enumerate(pred_year):
+                    if self.buckets.is_in_bucket(batch_guess, target[i]):
+                        pred_year[i] = torch.tensor(target[i])
+                loss = self.loss_function(pred_year, target)
+                loss.backward()
+                self.optimizer.step()
+                epoch_loss += loss
+                for i, batch_guess in enumerate(pred_year):
+                    counter +=1
+                    if self.buckets.is_in_bucket(batch_guess, target[i]):
+                        epoch_correct +=1.0
+                        #print('corrects: ', epoch_correct, 'batch_size ', BATCH_SIZE*len(training_data))
+            train_accuracy.append(epoch_correct/counter)
+            train_loss.append(epoch_loss.item()/counter)
+
+            if validation:
+                print('\nvalidating')
+                with torch.no_grad():
+                    counter = 0.0
+                    for iii, (sentence, tag, qid) in enumerate(validation):
+                        tag = tag.view(-1)
+                        target = Variable(tag).to(self.device)
+                        sentence = Variable(sentence).to(self.device)
+
+                        pred_year, mm = self.lstm(sentence, show=True) #[BATCH x 1019]
+                        #pred_year = self.lstm(sentence) #[BATCH x 1019]
+
+                        pred_year = pred_year.view(-1)
+                        for i, batch_guess in enumerate(pred_year):
+                            if self.buckets.is_in_bucket(batch_guess, target[i]):
+                                pred_year[i] = torch.tensor(target[i])
+                        loss = self.loss_function(pred_year, target)
+                        valid_loss += loss
+                        for i in range(len(qid)):
+                            batch_guess = pred_year[i]
+                            counter+=1
+                            if self.buckets.is_in_bucket(batch_guess, target[i]):
+                                valid_correct +=1
+                            if counter < 5:
+                                #dsbatchitem = validation.dataset.
+
+                                print('\n[',batch_guess.item(), target[i].item(),']', end='')#, '\nM,',m[i])
+                                queswords = validation.dataset.get_sentence(qid[i])
+                                #print(len(queswords), len(queswords[0]))
+                                listToSort=[]
+                                for ii in range(min(len(queswords), MAX_LENGTH)):
+                                    listToSort.append((queswords[ii], round(mm[i][ii].item(),2)))
+                                listToSort.sort(key=itemgetter(1), reverse=True)
+                                for iia, iib in listToSort:
+                                    print(iia, iib, end=' ')
+                                print()
+
+
+
+                    test_accuracy.append(valid_correct/counter)
+                    test_loss.append(valid_loss.item()/counter)
+            self.scheduler.step(test_loss[-1])
+            print('Epoch',str(epoch), self.TIME(),' train_accuracy', train_accuracy[-1], ', train_loss', train_loss[-1],', test_accuracy', test_accuracy[-1],', test_loss', test_loss[-1])#, '\r', end='')
+        return (train_accuracy, train_loss, test_accuracy, test_loss)
+
+    def prepare_dataloaders(self):
+        training_set, validation_set = YVDataset(self.q_file_path, self.wiki_year_dict, self.w2yv_dict, self.w2yv_vals), YVDataset(self.v_file_path, self.wiki_year_dict, self.w2yv_dict, self.w2yv_vals)
+        trainloader = DataLoader(training_set, batch_size=BATCH_SIZE, shuffle=True, drop_last=True)
+        print(self.TIME())
+        validloader = DataLoader(validation_set, batch_size=BATCH_SIZE, shuffle=True, drop_last=True)
+        print(self.TIME())
+        return trainloader, validloader
+
+
+
+print('running linear')
+INSTANCE = LSTM_Loader('MASK')
