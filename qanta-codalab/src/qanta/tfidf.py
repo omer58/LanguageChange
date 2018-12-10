@@ -38,7 +38,7 @@ def guess_and_buzz(model, question_text) -> Tuple[str, bool]:
 
 def batch_guess_and_buzz(model, questions) -> List[Tuple[str, bool]]:
     import os
-    if True:
+    if False:
 
         #os.system("echo 'ALL Qs: " +str(questions)+"'")
         for i in range(len(questions)):
@@ -61,8 +61,9 @@ def batch_guess_and_buzz(model, questions) -> List[Tuple[str, bool]]:
         scores = [guess[1] for guess in guesses]
         buzz = scores[0] / sum(scores) >= BUZZ_THRESHOLD
         outputs.append((guesses[0][0], buzz))
-        if len(questions[i]) > 20 :
-            os.system("echo '"+str(guesses[0]) + "--" + str(model.wiki2year[guesses[0][0]]) + "--"  + questions[i][:4] + "--" + questions[i][-40:] + "'")
+        if len(questions[i]) > 20 and False:
+            os.system("echo '"+str(guesses[0]) + "--" + str(model.wiki2year[guesses[0][0]])  + "'") #+ "--"  + questions[i][:4] + "--" + questions[i][-40:]
+            #print(str(guesses[0]) + "--" + str(model.wiki2year[guesses[0][0]]) + "--")#  + questions[i][:4] + "--" + questions[i][-40:])
             time.sleep(1)
     return outputs
 

@@ -27,7 +27,7 @@ torch.manual_seed(58)
 # target space of :math:`A` is :math:`|T|`.
 
 
-HIDDEN_DIM1      = 1395
+HIDDEN_DIM1      = 1078
 HIDDEN_DIM2      = 32
 
 class YearLSTM(nn.Module):
@@ -41,17 +41,25 @@ class YearLSTM(nn.Module):
         self.hidden2tag     = nn.Linear(HIDDEN_DIM2, 1)
         self.device         = device
         self.big            = nn.Sequential(
-                                nn.Conv1d(self.SENT_LEN, 8, 1000, stride=200),
-                                nn.BatchNorm1d(8),
+                                nn.AvgPool1d(10),
+                                nn.Conv1d(1, 4, 10, stride=5, padding=5),
+                                nn.BatchNorm1d(4),
                                 nn.ReLU(inplace=True), #=(1019 - 3 )/2 = 508
+                                nn.Conv1d(4,1,4),
+                                nn.BatchNorm1d(1),
+                                nn.ReLU(inplace=True),
                                 )
         self.med            = nn.Sequential(
-                                nn.Conv1d(self.SENT_LEN, 8, 100, stride=20), # 504
+                                nn.AvgPool1d(10),
+                                nn.Conv1d(1, 8, 10, stride=2,padding=2), # 504
                                 nn.BatchNorm1d(8),
+                                nn.ReLU(inplace=True),
+                                nn.Conv1d(8,1,8),
+                                nn.BatchNorm1d(1),
                                 nn.ReLU(inplace=True),
                                 )
         self.sml            = nn.Sequential(
-                                nn.Conv1d(self.SENT_LEN, 1, 1), #500
+                                nn.Conv1d(1, 1, 1), #500
                                 nn.BatchNorm1d(1),
                                 nn.ReLU(inplace=True)
                                 )
@@ -60,13 +68,21 @@ class YearLSTM(nn.Module):
 
 
     def forward(self, batch):
+        m = batch.view(self.BATCH_SIZE*self.SENT_LEN,1,-1)
+        c1 = self.big(m)
+        c1=c1.view(self.BATCH_SIZE,self.SENT_LEN,-1)
+        c1=torch.sum(c1, dim=1)
 
-        c1 = self.big(batch).view(self.BATCH_SIZE,-1)
-        c2 = self.med(batch).view(self.BATCH_SIZE,-1)
-        c3 = self.sml(batch).view(self.BATCH_SIZE,-1)
+        c2 = self.med(m).view(self.BATCH_SIZE,self.SENT_LEN,-1)
+        c2=torch.sum(c2, dim=1)
+
+        c3 = self.sml(m).view(self.BATCH_SIZE,self.SENT_LEN,-1)
+        c3=torch.sum(c3, dim=1)
+
+
         c4 = torch.cat((c1,c2,c3), dim=1)
         #print(c4.shape,'$$$')
         c4 = self.conv2hid(c4)
         pred_year = self.hidden2tag(c4)
-        tag_scores = pred_year 
+        tag_scores = pred_year
         return tag_scores
