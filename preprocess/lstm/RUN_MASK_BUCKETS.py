@@ -17,18 +17,18 @@ import TokenCleaner
 torch.backends.cudnn.benchmark=True
 from torch.utils.data import DataLoader
 from operator import itemgetter
+from Buckets import Buckets
 
 
-
-#DEFAULT_Q_FILE_PATH = '../../data_sets/qanta.train.2018.04.18.json'
-DEFAULT_Q_FILE_PATH = '../../../../qanta-codalab/data/qanta.dev.2018.04.18.json'
+DEFAULT_Q_FILE_PATH = '../../data_sets/qanta.train.2018.04.18.json'
+#DEFAULT_Q_FILE_PATH = '../../../../qanta-codalab/data/qanta.dev.2018.04.18.json'
 DEFAULT_Q_YEAR_PATH = '../../data_sets/wiki_article_to_year.pickle'
 DEFAULT_W2YVD_PATH   = '../../data_sets/w2yv_dic.pickle'
 DEFAULT_W2YVV_PATH   = '../../data_sets/w2yv_vals.npy'
-#DEFAULT_V_FILE_PATH = '../../data_sets/qanta.test.2018.04.18.json'
-DEFAULT_V_FILE_PATH =  '../../../../qanta-codalab/data/qanta.test.2018.04.18.json'
+DEFAULT_V_FILE_PATH = '../../data_sets/qanta.test.2018.04.18.json'
+#DEFAULT_V_FILE_PATH =  '../../../../qanta-codalab/data/qanta.test.2018.04.18.json'
 
-BATCH_SIZE      = 32
+BATCH_SIZE      = 128
 MAX_LENGTH      = 64
 EMBEDDING_DIM   = 1019
 NUM_EPOCHS      = 40
@@ -107,25 +107,43 @@ class LSTM_Loader:
         self.loss_function  = nn.MSELoss().to(self.device)
         self.optimizer      = optim.SGD(self.lstm.parameters(), lr=1e-7, momentum=0.9, nesterov=True, weight_decay=5e-4)
         self.scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau (self.optimizer)
+        self.buckets = Buckets(self.w2yv_vals)
 
         if os.path.isfile('../../models/'+name) and False:
             print('LOADING MODEL FROM DISK')
             self.lstm.load_state_dict(torch.load('../../models/'+self.name))
+            print('\nvalidating')
             with torch.no_grad():
-                valid_loss, valid_correct, counter = 0.0, 0.0, 0.0
-                for iii, (sentence, tag) in enumerate(testL):
-                    self.lstm.hidden = self.lstm.init_hidden()
+                counter = 0.0
+                for iii, (sentence, tag, qid) in enumerate(validation):
                     tag = tag.view(-1)
                     target = Variable(tag).to(self.device)
                     sentence = Variable(sentence).to(self.device)
-                    pred_year = self.lstm(sentence) #[BATCH x 1019]
+
+                    pred_year, mm = self.lstm(sentence, show=True) #[BATCH x 1019]
+                    #pred_year = self.lstm(sentence) #[BATCH x 1019]
+
                     pred_year = pred_year.view(-1)
+                    for i, batch_guess in enumerate(pred_year):
+                        if self.buckets.is_in_bucket(batch_guess, target[i]):
+                            pred_year[i] = torch.tensor(target[i])
                     loss = self.loss_function(pred_year, target)
                     valid_loss += loss
                     for i, batch_guess in enumerate(pred_year):
-                        counter +=1
+                        counter+=1
                         if self.buckets.is_in_bucket(batch_guess, target[i]):
                             valid_correct +=1
+                        if counter < 5:
+                            print('\n[',batch_guess.item(), target[i].item(),']', end='')#, '\nM,',m[i])
+                            queswords = validation.dataset.get_sentence(qid[i])
+                            #print(len(queswords), len(queswords[0]))
+                            listToSort=[]
+                            for ii in range(min(len(queswords), MAX_LENGTH)):
+                                listToSort.append((queswords[ii], round(mm[i][ii].item(),2)))
+                            listToSort.sort(key=itemgetter(1), reverse=True)
+                            for iia, iib in listToSort:
+                                print(iia, iib, end=' ')
+                            print()
                 print('TEST ACC:',valid_correct/counter)
                 print('TEST LOS:',valid_loss.item()/counter)
         else:
