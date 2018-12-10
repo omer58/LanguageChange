@@ -16,19 +16,19 @@ sys.path.append('../model_factory')
 import TokenCleaner
 torch.backends.cudnn.benchmark=True
 from torch.utils.data import DataLoader
-from Buckets import Buckets
+from operator import itemgetter
 
 
 
-DEFAULT_Q_FILE_PATH = '../../data_sets/qanta.train.2018.04.18.json'
-#DEFAULT_Q_FILE_PATH = '../../../../qanta-codalab/data/qanta.train.2018.04.18.json'
+#DEFAULT_Q_FILE_PATH = '../../data_sets/qanta.train.2018.04.18.json'
+DEFAULT_Q_FILE_PATH = '../../../../qanta-codalab/data/qanta.dev.2018.04.18.json'
 DEFAULT_Q_YEAR_PATH = '../../data_sets/wiki_article_to_year.pickle'
 DEFAULT_W2YVD_PATH   = '../../data_sets/w2yv_dic.pickle'
 DEFAULT_W2YVV_PATH   = '../../data_sets/w2yv_vals.npy'
-DEFAULT_V_FILE_PATH = '../../data_sets/qanta.test.2018.04.18.json'
-#DEFAULT_V_FILE_PATH =  '../../../../qanta-codalab/data/qanta.test.2018.04.18.json'
+#DEFAULT_V_FILE_PATH = '../../data_sets/qanta.test.2018.04.18.json'
+DEFAULT_V_FILE_PATH =  '../../../../qanta-codalab/data/qanta.test.2018.04.18.json'
 
-BATCH_SIZE      = 64
+BATCH_SIZE      = 32
 MAX_LENGTH      = 64
 EMBEDDING_DIM   = 1019
 NUM_EPOCHS      = 40
@@ -41,28 +41,29 @@ class YVDataset(td.Dataset):
     self.w2yvVals = w2yv_vals
     cleaner = TokenCleaner.Cleaner()
     print('Loading dataset from ', file_path)
-    self.data_x, self.data_y = [], []
+    self.data_x, self.data_y, self.questions = [], [], []
     with open(file_path,'r') as F:
-        bucketcounter =dict()
+        #bucketcounter =dict()
         for thing in F:
             j = json.loads(thing)['questions']
             for question_chunk in j:
                 wiki_page = question_chunk['page']
                 if wiki_page in wiki_year_dict:
                     wiki_year = wiki_year_dict[wiki_page]
-                    if wiki_year not in bucketcounter:
-                        bucketcounter[wiki_year ]=0
-                    if bucketcounter[wiki_year] > 150:
-                        continue
-                    bucketcounter[wiki_year]+=1
-                    question_words = cleaner.clean(question_chunk['text'])
+                    #if wiki_year not in bucketcounter:
+                    #    bucketcounter[wiki_year ]=0
+                    #if bucketcounter[wiki_year] > 150:
+                    #    continue
+                    #bucketcounter[wiki_year]+=1
+                    question_words = cleaner.clean(question_chunk['text'].lower())
+                    self.questions.append([word for word in question_words if word in w2yv_dict])
                     question_words = [w2yv_dict[word] for word in question_words if word in w2yv_dict]
                     sent_len = len(question_words)
                     question = question_words+([-1]*(MAX_LENGTH - sent_len)) if sent_len < MAX_LENGTH else question_words[-MAX_LENGTH:] #PAD or CONCAT
                     if len(question)!= MAX_LENGTH:
                         print('FEAT',len(question))
                         print('SENT',sent_len)
-                        print(question_chunk['text'])
+                        #print(question_chunk['text'])
                     self.data_x.append(question)
                     self.data_y.append(wiki_year - 1000)
 
@@ -70,10 +71,13 @@ class YVDataset(td.Dataset):
     sentence = self.data_x[index]
     features = torch.FloatTensor(np.asarray([self.w2yvVals[word]*100 if word != -1 else DEFAULT_YEAR_VEC for word in sentence]))
     labels = torch.FloatTensor([self.data_y[index]])
-    return (features, labels)
+    return (features, labels, index)
 
   def __len__(self):
     return len(self.data_x)
+
+  def get_sentence(self, index):
+    return self.questions[index]
 
 class LSTM_Loader:
     def TIME(self):
@@ -103,8 +107,6 @@ class LSTM_Loader:
         self.loss_function  = nn.MSELoss().to(self.device)
         self.optimizer      = optim.SGD(self.lstm.parameters(), lr=1e-7, momentum=0.9, nesterov=True, weight_decay=5e-4)
         self.scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau (self.optimizer)
-        self.buckets = Buckets(self.w2yv_vals)
-
 
         if os.path.isfile('../../models/'+name) and False:
             print('LOADING MODEL FROM DISK')
@@ -118,11 +120,6 @@ class LSTM_Loader:
                     sentence = Variable(sentence).to(self.device)
                     pred_year = self.lstm(sentence) #[BATCH x 1019]
                     pred_year = pred_year.view(-1)
-
-                    for i, batch_guess in enumerate(pred_year):
-                        if self.buckets.is_in_bucket(batch_guess, target[i]):
-                            pred_year[i] = torch.tensor(target[i])
-
                     loss = self.loss_function(pred_year, target)
                     valid_loss += loss
                     for i, batch_guess in enumerate(pred_year):
@@ -176,7 +173,7 @@ class LSTM_Loader:
         len_data = len(training_data)
         for epoch in range(num_epochs):
             epoch_correct, epoch_loss, valid_correct, valid_loss, counter = 0.0, 0.0, 0.0, 0.0, 0.0
-            for iii, (sentence, tag) in enumerate(training_data):
+            for iii, (sentence, tag, _) in enumerate(training_data):
                 print('\rdata', str(iii), len_data, int(time.time()-self.sT), 'sec', end='')
                 self.lstm.zero_grad()
                 tag = tag.view(-1)
@@ -204,11 +201,14 @@ class LSTM_Loader:
                 print('\nvalidating')
                 with torch.no_grad():
                     counter = 0.0
-                    for iii, (sentence, tag) in enumerate(validation):
+                    for iii, (sentence, tag, qid) in enumerate(validation):
                         tag = tag.view(-1)
                         target = Variable(tag).to(self.device)
                         sentence = Variable(sentence).to(self.device)
-                        pred_year = self.lstm(sentence) #[BATCH x 1019]
+
+                        pred_year, mm = self.lstm(sentence, show=True) #[BATCH x 1019]
+                        #pred_year = self.lstm(sentence) #[BATCH x 1019]
+
                         pred_year = pred_year.view(-1)
                         for i, batch_guess in enumerate(pred_year):
                             if self.buckets.is_in_bucket(batch_guess, target[i]):
@@ -219,8 +219,20 @@ class LSTM_Loader:
                             counter+=1
                             if self.buckets.is_in_bucket(batch_guess, target[i]):
                                 valid_correct +=1
-                            if counter < 10:
-                                print('[',batch_guess, target[i],']')
+                            if counter < 5:
+                                print('\n[',batch_guess.item(), target[i].item(),']', end='')#, '\nM,',m[i])
+                                queswords = validation.dataset.get_sentence(qid[i])
+                                #print(len(queswords), len(queswords[0]))
+                                listToSort=[]
+                                for ii in range(min(len(queswords), MAX_LENGTH)):
+                                    listToSort.append((queswords[ii], round(mm[i][ii].item(),2)))
+                                listToSort.sort(key=itemgetter(1), reverse=True)
+                                for iia, iib in listToSort:
+                                    print(iia, iib, end=' ')
+                                print()
+
+
+
                     test_accuracy.append(valid_correct/counter)
                     test_loss.append(valid_loss.item()/counter)
             self.scheduler.step(test_loss[-1])
@@ -238,4 +250,4 @@ class LSTM_Loader:
 
 
 print('running linear')
-INSTANCE = LSTM_Loader('DAN')
+INSTANCE = LSTM_Loader('MASK')
