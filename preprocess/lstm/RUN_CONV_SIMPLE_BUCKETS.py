@@ -1,5 +1,5 @@
 import json
-import conv_model_simple_buckets as M
+import conv_model_simple as M
 import os.path
 import torch
 import pickle
@@ -19,7 +19,7 @@ from torch.utils.data import DataLoader
 
 
 
-DEFAULT_Q_FILE_PATH = '../../data_sets/qanta.dev.2018.04.18.json'
+DEFAULT_Q_FILE_PATH = '../../data_sets/qanta.train.2018.04.18.json'
 #DEFAULT_Q_FILE_PATH = '../../../../qanta-codalab/data/qanta.train.2018.04.18.json'
 DEFAULT_Q_YEAR_PATH = '../../data_sets/wiki_article_to_year.pickle'
 DEFAULT_W2YVD_PATH   = '../../data_sets/w2yv_dic.pickle'
@@ -30,7 +30,7 @@ DEFAULT_V_FILE_PATH = '../../data_sets/qanta.test.2018.04.18.json'
 BATCH_SIZE      = 64
 MAX_LENGTH      = 64
 EMBEDDING_DIM   = 1019
-NUM_EPOCHS      = 1
+NUM_EPOCHS      = 10
 
 DEFAULT_YEAR_VEC= [0.0]*EMBEDDING_DIM
 
@@ -51,7 +51,7 @@ class YVDataset(td.Dataset):
                     wiki_year = wiki_year_dict[wiki_page]
                     if wiki_year not in bucketcounter:
                         bucketcounter[wiki_year ]=0
-                    if bucketcounter[wiki_year] > 500:
+                    if bucketcounter[wiki_year] > 50:
                         continue
                     bucketcounter[wiki_year]+=1
                     question_words = cleaner.clean(question_chunk['text'])
@@ -300,6 +300,6 @@ class LSTM_Loader:
 
 
 print('running conv simple')
-INSTANCE = LSTM_Loader('CONV_simple_adadelta_buckets_Adam', 'Adam')
+#INSTANCE = LSTM_Loader('CONV_simple_adadelta_buckets_Adam', 'Adam')
 INSTANCE = LSTM_Loader('CONV_simple_adadelta_buckets_adadelta', 'Adadelta')
 INSTANCE = LSTM_Loader('CONV_simple_adadelta_buckets_sgd', 'sgd')
