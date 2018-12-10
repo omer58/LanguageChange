@@ -47,5 +47,5 @@ class Buckets:
 
         window_len = self.get_window(target)
 
-        return abs(target - prediction) < window_len:
+        return abs(target - prediction) < window_len
         

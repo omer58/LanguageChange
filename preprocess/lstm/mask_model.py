@@ -58,11 +58,11 @@ class YearLSTM(nn.Module):
                                 nn.MaxPool1d(2), #48
 
                                 nn.Conv1d(16, 24, 6,stride=2), # 24
-                                nn.BatchNorm1d(64),
+                                nn.BatchNorm1d(24),
                                 nn.ReLU(inplace=True),
 
                                 nn.Conv1d(24, CONV_OUT_NUM, 4, stride=2), # 10
-                                nn.BatchNorm1d(64),
+                                nn.BatchNorm1d(CONV_OUT_NUM),
                                 nn.ReLU(inplace=True),
 
                                 nn.MaxPool1d(3), # 3 OUT 1
