@@ -1,8 +1,10 @@
 from collections import defaultdict
 import pickle
 from math import log
+import numpy as np
 
 
+DENOISING_CUTOFF = 5
 
 def dump_w2yv(word2YearVec, file):
 
@@ -29,7 +31,7 @@ def load_w2yv(file):
 if __name__ == "__main__":
 
     LEN_YEAR_VECTOR = 1019
-    year_book = pickle.load(open('../../data_sets/year_book_sample.pickle', 'rb'))
+    year_book = pickle.load(open('../../data_sets/year_book.pickle', 'rb'))
     word2YearVec = defaultdict(list)            # { word -> LIST(year_i -> REAL) }
     totalYearCounts = defaultdict(int)          # { year -> int_tot_wrd_count }
     wordsInYear = defaultdict(set)              # { word -> SET(year0, year1, year2) }
@@ -47,25 +49,40 @@ if __name__ == "__main__":
 
     word2YearVec = dict(word2YearVec)
 
-    print('denoising...')
-    WINDOW_SIZE = 5;
+    print('normalizing...')
+    '''WINDOW_SIZE = 5;
     half_window = int( WINDOW_SIZE/2)
     for word in word2YearVec:
+        sum_ = 0
         for i in range(len(word2YearVec[word])):
             if i - half_window > -1 and i+half_window < len(word2YearVec[word]):
-                if sum(word2YearVec[word][i - half_window : i + half_window +1]) == word2YearVec[word][i]:
+                tot = sum(word2YearVec[word][i - half_window : i + half_window +1])
+                if tot == word2YearVec[word][i] and tot < DENOISING_CUTOFF:
                     word2YearVec[word][i] = 0
 
             elif i - WINDOW_SIZE > -1:
-                if sum(word2YearVec[word][i-WINDOW_SIZE:i]) == word2YearVec[word][i]:
+                tot = sum(word2YearVec[word][i-WINDOW_SIZE:i])
+                if tot == word2YearVec[word][i] and tot < DENOISING_CUTOFF:
                     word2YearVec[word][i] = 0
 
             elif i+ WINDOW_SIZE <= len(word2YearVec[word]):
-                if sum(word2YearVec[word][i:i+WINDOW_SIZE]) == word2YearVec[word][i]:
+
+                tot = sum(word2YearVec[word][i:i+WINDOW_SIZE])
+                if  tot == word2YearVec[word][i] and tot < DENOISING_CUTOFF:
                     word2YearVec[word][i] = 0
 
 
+            sum_ += word2YearVec[word][i]
+        '''
+
+    for word in word2YearVec:
+        sum_ = sum(word2YearVec[word])
+        for i in range(len(word2YearVec[word])):
+            word2YearVec[word][i] /= (1.0 * sum_)
+
+
     #scale word vectors, divide each word in year, by total occurance count of that word.
+    '''
     print('tf-idfing...')
     for word, wordVec in word2YearVec.items():
         yearsWithWord = len(wordsInYear[word])
@@ -83,10 +100,13 @@ if __name__ == "__main__":
                     print(value)
                     print(totalYearCounts[year])
                     print()
+    '''
 
 
 
-
-    print('pickling...')
-    dump_w2yv(word2YearVec, open('temp', 'w+'))
-    #pickle.dump(word2YearVec, open('../../data_sets/w2yv.pickle', 'wb'))
+    map = {x:i for i, x in enumerate(word2YearVec.keys())}
+    vecs = np.asarray(word2YearVec.items())
+    print('pickling')
+    pickle.dump(map, open('w2yv_dict_normalized.pickle', 'wb'))
+    print('npy saving')
+    np.save(open('w2yv_vals_normalized.npy', 'wb'), vecs)
