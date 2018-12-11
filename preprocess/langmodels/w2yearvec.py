@@ -37,13 +37,14 @@ if __name__ == "__main__":
     wordsInYear = defaultdict(set)              # { word -> SET(year0, year1, year2) }
 
     for year, year_page in enumerate(year_book):
+        tot = sum(list(year_page.values())) #normalize with in year
         for word, count in year_page.items():
             try:
-                word2YearVec[word][year] = count
+                word2YearVec[word][year] = count*1.0 / tot # norm
             except IndexError:
                 for i in range(LEN_YEAR_VECTOR):
                     word2YearVec[word].append(0.0)
-                word2YearVec[word][year] = count
+                word2YearVec[word][year] = count*1.0 / tot # norm
             totalYearCounts[year] += count
             wordsInYear[word].add(year)
 
@@ -75,10 +76,11 @@ if __name__ == "__main__":
             sum_ += word2YearVec[word][i]
         '''
 
-    for word in word2YearVec:
-        sum_ = sum(word2YearVec[word])
-        for i in range(len(word2YearVec[word])):
-            word2YearVec[word][i] /= (1.0 * sum_)
+    #normalize within word
+    #for word in word2YearVec:
+    #    sum_ = sum(word2YearVec[word])
+    #    for i in range(len(word2YearVec[word])):
+    #        word2YearVec[word][i] /= (1.0 * sum_)
 
 
     #scale word vectors, divide each word in year, by total occurance count of that word.
@@ -105,8 +107,8 @@ if __name__ == "__main__":
 
 
     map = {x:i for i, x in enumerate(word2YearVec.keys())}
-    vecs = np.asarray(word2YearVec.items())
+    vecs = np.asarray(list(word2YearVec.values()))
     print('pickling')
-    pickle.dump(map, open('w2yv_dict_normalized.pickle', 'wb'))
+    pickle.dump(map, open('w2yv_dict_yearnormalized.pickle', 'wb'))
     print('npy saving')
-    np.save(open('w2yv_vals_normalized.npy', 'wb'), vecs)
+    np.save(open('w2yv_vals_yearnormalized.npy', 'wb'), vecs)
