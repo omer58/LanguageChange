@@ -77,10 +77,10 @@ if __name__ == "__main__":
         '''
 
     #normalize within word
-    #for word in word2YearVec:
-    #    sum_ = sum(word2YearVec[word])
-    #    for i in range(len(word2YearVec[word])):
-    #        word2YearVec[word][i] /= (1.0 * sum_)
+    for word in word2YearVec:
+        sum_ = sum(word2YearVec[word])
+        for i in range(len(word2YearVec[word])):
+            word2YearVec[word][i] /= (1.0 * sum_)
 
 
     #scale word vectors, divide each word in year, by total occurance count of that word.
