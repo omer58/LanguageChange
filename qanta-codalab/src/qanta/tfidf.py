@@ -14,7 +14,8 @@ from qanta.dataset import QuizBowlDataset
 import time
 
 import sys
-sys.path.insert(0, './oracle')
+sys.path.insert(0, '/oracle')
+sys.path.insert(0, '/preprocess')
 
 
 from year_guesser import Year_Guesser
@@ -38,12 +39,12 @@ def guess_and_buzz(model, question_text) -> Tuple[str, bool]:
 
 def batch_guess_and_buzz(model, questions) -> List[Tuple[str, bool]]:
     import os
-    if False:
+    if True:
 
         #os.system("echo 'ALL Qs: " +str(questions)+"'")
         for i in range(len(questions)):
 
-            if len(questions[i]) > 2:
+            if len(questions[i]) > 20:
                 year = model.yg.guess(questions[i])
                 if year:
                     #os.system("echo '"+questions[i]+"'")
@@ -61,8 +62,8 @@ def batch_guess_and_buzz(model, questions) -> List[Tuple[str, bool]]:
         scores = [guess[1] for guess in guesses]
         buzz = scores[0] / sum(scores) >= BUZZ_THRESHOLD
         outputs.append((guesses[0][0], buzz))
-        if len(questions[i]) > 20 and False:
-            os.system("echo '"+str(guesses[0]) + "--" + str(model.wiki2year[guesses[0][0]])  + "'") #+ "--"  + questions[i][:4] + "--" + questions[i][-40:]
+        if len(questions[i]) > 20:
+            os.system("echo '"+str(guesses[0]) + "--" + str(model.wiki2year[guesses[0][0]])  + "--"  + questions[i][:4] + "--" +  "'")#+ questions[i][-40:]
             #print(str(guesses[0]) + "--" + str(model.wiki2year[guesses[0][0]]) + "--")#  + questions[i][:4] + "--" + questions[i][-40:])
             time.sleep(1)
     return outputs
@@ -74,7 +75,7 @@ class TfidfGuesser:
         self.tfidf_matrix = None
         self.i_to_ans = None
         self.yg = Year_Guesser()
-        self.wiki2year = pickle.load(open('data_sets/wiki_article_to_year.pickle', 'rb'))
+        self.wiki2year = pickle.load(open('../../data_sets/wiki_article_to_year.pickle', 'rb'))
 
     def train(self, training_data) -> None:
         questions = training_data[0]
