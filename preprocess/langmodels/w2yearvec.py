@@ -38,10 +38,16 @@ for year, year_page in enumerate(year_book):
     tot_in_year = sum(year_page.values())
     for word, count in year_page.items():
         try:
-            word2YearVec[word][year] = count / tot_in_year
+            if tot_in_year:
+                word2YearVec[word][year] = count / tot_in_year
+            else:
+                word2YearVec[word][year] = count
         except IndexError:
-            word2YearVec[word] = np.empty(LEN_YEAR_VECTOR, dtype=np.float16)
-            word2YearVec[word][year] = count / tot_in_year
+            word2YearVec[word] = np.empty(LEN_YEAR_VECTOR, dtype=np.float64)
+            if tot_in_year:
+                word2YearVec[word][year] = count / tot_in_year
+            else:
+                word2YearVec[word][year] = count
 
 word2YearVec = dict(word2YearVec) #from default dict to dict
 
