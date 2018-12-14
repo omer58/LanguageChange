@@ -25,10 +25,11 @@ from operator import itemgetter
 #DEFAULT_Q_FILE_PATH = '../../data_sets/qanta.train.2018.04.18.json'
 DEFAULT_Q_FILE_PATH = '../../../../qanta-codalab/data/qanta.dev.2018.04.18.json'
 DEFAULT_Q_YEAR_PATH = '../../data_sets/wiki_article_to_year.pickle'
-DEFAULT_W2YVD_PATH   = '../data_sets/w2yv_dic.pickle'
-DEFAULT_W2YVV_PATH   = '../data_sets/w2yv_vals.npy'
+DEFAULT_W2YVD_PATH   = '../data_sets/w2yv_dict_wordnormalized.pickle'
+DEFAULT_W2YVV_PATH   = '../data_sets/w2yv_vals_wordnormalized.npy'
 #DEFAULT_V_FILE_PATH = '../../data_sets/qanta.test.2018.04.18.json'
 DEFAULT_V_FILE_PATH =  '../../../../qanta-codalab/data/qanta.test.2018.04.18.json'
+
 
 BATCH_SIZE      = 1
 MAX_LENGTH      = 64
@@ -52,7 +53,7 @@ class nn_year_guesser:
         self.w2yvVals = np.load(open(DEFAULT_W2YVV_PATH, 'rb'))
 
 
-    def run(self, question):
+    def guess(self, question):
 
 
         question_words = self.cleaner.clean(question.lower())
@@ -75,13 +76,13 @@ class nn_year_guesser:
 
         sentence = Variable(sentence).to(self.device)
         pred_year = self.lstm(sentence) #[BATCH x 1019]
-        pred_year = pred_year.view(-1)
+        pred_year = pred_year.view(-1)[0]
 
-        for i, batch_guess in enumerate(pred_year):
-            print(batch_guess)
-
+        return pred_year.item()
 
 
 
-guesser =  nn_year_guesser()
-guesser.run('this is a question')
+
+if __name__ == "__main__":
+    guesser =  nn_year_guesser()
+    guesser.guess('this is a question')

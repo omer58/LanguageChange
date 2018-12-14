@@ -13,12 +13,16 @@ from qanta import util
 from qanta.dataset import QuizBowlDataset
 import time
 
+
+
+
 import sys
 sys.path.insert(0, '/oracle')
 sys.path.insert(0, '/preprocess')
 
 
 from year_guesser import Year_Guesser
+#from nn_year_guesser import nn_year_guesser
 
 
 
@@ -39,7 +43,7 @@ def guess_and_buzz(model, question_text) -> Tuple[str, bool]:
 
 def batch_guess_and_buzz(model, questions) -> List[Tuple[str, bool]]:
     import os
-    if True:
+    if False:
 
         #os.system("echo 'ALL Qs: " +str(questions)+"'")
         for i in range(len(questions)):
@@ -60,12 +64,31 @@ def batch_guess_and_buzz(model, questions) -> List[Tuple[str, bool]]:
     #os.system("echo '"+str(question_guesses[:10])+"'")
     for i, guesses in enumerate(question_guesses):
         scores = [guess[1] for guess in guesses]
-        buzz = scores[0] / sum(scores) >= BUZZ_THRESHOLD
-        outputs.append((guesses[0][0], buzz))
+        buzz_score = scores[0] / sum(scores)
+        buzz = buzz_score >= BUZZ_THRESHOLD * .9
+        year = 0
         if len(questions[i]) > 20:
-            os.system("echo '"+str(guesses[0]) + "--" + str(model.wiki2year[guesses[0][0]])  + "--"  + questions[i][:4] + "--" +  "'")#+ questions[i][-40:]
+            year = model.yg.guess(questions[i])
+            print(year)
+
+
+
+
+        if year:
+            year
+            if abs(model.wiki2year[guesses[0][0]] - year) > abs(model.wiki2year[guesses[1][0]] - year)and abs(guesses[0][1] - guesses[1][1]) < .01:
+                outputs.append((guesses[1][0], buzz))
+            else:
+                outputs.append((guesses[0][0], buzz))
+        else:
+            outputs.append((guesses[0][0], buzz))
+
+
+            #os.system("echo '"+str(guesses[0]) + "--" + str(model.wiki2year[guesses[0][0]])  + "--"  + questions[i][:4] + "--" +  "'")#+ questions[i][-40:]
             #print(str(guesses[0]) + "--" + str(model.wiki2year[guesses[0][0]]) + "--")#  + questions[i][:4] + "--" + questions[i][-40:])
-            time.sleep(1)
+            #time.sleep(1)
+
+
     return outputs
 
 
@@ -74,7 +97,7 @@ class TfidfGuesser:
         self.tfidf_vectorizer = None
         self.tfidf_matrix = None
         self.i_to_ans = None
-        self.yg = Year_Guesser()
+        self.yg = Year_Guesser()#nn_year_guesser()#Year_Guesser()
         self.wiki2year = pickle.load(open('../../data_sets/wiki_article_to_year.pickle', 'rb'))
 
     def train(self, training_data) -> None:
